@@ -1,13 +1,12 @@
 name: CI
 
-# Pas de suite de tests unitaires ni de linter configurés pour l'instant
-# (voir CONTRIBUTING.md et PLAN_ENRICHISSEMENT.md, item 14) — cette CI fait
-# donc volontairement ce qui existe réellement aujourd'hui : une
-# vérification de syntaxe (py_compile) sur les deux scripts Python, puis un
-# test d'exécution réel de bout en bout (collecte, graphe, rendu HTML) sans
-# dépendance à Ollama ni à un affichage graphique. À enrichir avec pytest /
-# ruff dès qu'ils existent réellement dans le projet, plutôt que de les
-# faire semblant ici.
+# No unit test suite or linter configured yet
+# (see CONTRIBUTING.md and ENRICHMENT_PLAN.md, item 14) — this CI therefore
+# deliberately does what actually exists today: a syntax check
+# (py_compile) on the two Python scripts, then a real end-to-end run
+# (collection, graph, HTML rendering) with no dependency on Ollama or a
+# graphical display. To be enriched with pytest / ruff as soon as they
+# actually exist in the project, rather than faking them here.
 
 on:
   push:
@@ -29,17 +28,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
-      - name: Installer les dépendances
+      - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Vérification de syntaxe (py_compile)
+      - name: Syntax check (py_compile)
         run: |
-          python -m py_compile analyseur_processus_allinone.py
+          python -m py_compile process_analyzer_allinone.py
           python -m py_compile process_graph_analyzer.py
 
-      - name: Test d'exécution réel (sans Ollama, sans PNG)
+      - name: Real end-to-end run (no Ollama, no PNG)
         run: |
-          python analyseur_processus_allinone.py \
+          python process_analyzer_allinone.py \
             --no-enrich \
             --max-processes 30 \
             --html-output /tmp/ci_smoke_test.html

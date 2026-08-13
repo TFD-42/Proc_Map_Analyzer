@@ -1,58 +1,58 @@
 #!/usr/bin/env bash
 #
-# install.sh — installe automatiquement TOUT ce qu'il faut pour faire tourner
-# analyseur_processus_allinone.py sur une machine vierge (macOS, Linux, ou
-# Android/Termux), puis lance le script.
+# install.sh — automatically installs EVERYTHING needed to run
+# process_analyzer_allinone.py on a clean machine (macOS, Linux, or
+# Android/Termux), then launches the script.
 #
-# Ordre des étapes (chacune vérifie d'abord si c'est déjà présent, et ne
-# réinstalle rien inutilement) :
-#   1. Ollama (moteur IA local) — y compris sur Android/Termux (paquet `pkg
-#      install ollama`) quand il est disponible dans les dépôts Termux
-#   2. Un modèle Ollama ADAPTÉ À LA MACHINE :
-#        - Android/Termux : modèle MINI  (llama3.2:1b, ~1,3 Go) — RAM et
-#          stockage limités sur mobile
-#        - macOS / Linux  : modèle MEDIUM (llama3:latest, ~4,7 Go)
-#      (Windows, géré par install.ps1, reçoit aussi le medium)
+# Order of steps (each one first checks whether it's already present, and
+# never reinstalls anything unnecessarily):
+#   1. Ollama (local AI engine) — including on Android/Termux (`pkg
+#      install ollama` package) when it is available in the Termux repos
+#   2. An Ollama model ADAPTED TO THE MACHINE:
+#        - Android/Termux: MINI model (llama3.2:1b, ~1.3 GB) — limited
+#          RAM and storage on mobile
+#        - macOS / Linux : MEDIUM model (llama3:latest, ~4.7 GB)
+#      (Windows, handled by install.ps1, also gets the medium model)
 #   3. Python 3
-#   4. Création + activation d'un environnement virtuel (.venv)
-#   5. Dépendances Python (pip)
-#   6. Lancement de analyseur_processus_allinone.py
+#   4. Creation + activation of a virtual environment (.venv)
+#   5. Python dependencies (pip)
+#   6. Launching process_analyzer_allinone.py
 #
-# Usage :
+# Usage:
 #   chmod +x install.sh
 #   ./install.sh
 #
-# Les arguments passés à ce script sont transmis tels quels au script Python
-# (ex: ./install.sh --no-enrich --max-processes 50).
+# Arguments passed to this script are forwarded as-is to the Python script
+# (e.g. ./install.sh --no-enrich --max-processes 50).
 #
-# Aucune étape n'est silencieuse en cas d'échec : un échec d'installation
-# d'Ollama ou du modèle n'interrompt pas le reste (l'analyse fonctionne sans
-# IA), mais l'absence de Python est fatale (rien ne peut tourner sans lui).
+# No step fails silently: a failure installing Ollama or the model does not
+# interrupt the rest (the analysis works without AI), but the absence of
+# Python is fatal (nothing can run without it).
 
-set -uo pipefail  # Pas de -e volontairement : chaque étape gère elle-même ses erreurs
+set -uo pipefail  # No -e on purpose: each step handles its own errors
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PY_SCRIPT="$SCRIPT_DIR/analyseur_processus_allinone.py"
+PY_SCRIPT="$SCRIPT_DIR/process_analyzer_allinone.py"
 VENV_DIR="$SCRIPT_DIR/.venv"
 OLLAMA_HOST="http://localhost:11434"
-# Modèles par taille de machine — le choix effectif est fait après la
-# détection de plateforme, cf. plus bas.
-MODEL_MINI="llama3.2:1b"      # ~1,3 Go — Android/Termux (RAM/stockage limités)
-MODEL_MEDIUM="llama3:latest"  # ~4,7 Go — macOS/Linux
+# Models by machine size — the actual choice is made after platform
+# detection, see below.
+MODEL_MINI="llama3.2:1b"      # ~1.3 GB — Android/Termux (limited RAM/storage)
+MODEL_MEDIUM="llama3:latest"  # ~4.7 GB — macOS/Linux
 
 log()  { printf '\n\033[1;34m[install]\033[0m %s\n' "$1"; }
-warn() { printf '\033[1;33m[attention]\033[0m %s\n' "$1"; }
-err()  { printf '\033[1;31m[erreur]\033[0m %s\n' "$1" >&2; }
+warn() { printf '\033[1;33m[warning]\033[0m %s\n' "$1"; }
+err()  { printf '\033[1;31m[error]\033[0m %s\n' "$1" >&2; }
 
 if [ ! -f "$PY_SCRIPT" ]; then
-    err "analyseur_processus_allinone.py introuvable à côté de ce script ($SCRIPT_DIR)."
-    err "Place install.sh dans le même dossier que analyseur_processus_allinone.py puis relance."
+    err "process_analyzer_allinone.py not found next to this script ($SCRIPT_DIR)."
+    err "Place install.sh in the same folder as process_analyzer_allinone.py and rerun."
     exit 1
 fi
 
 # ---------------------------------------------------------------------------
-# 0. Détection de la plateforme (même logique que le script Python, pour
-#    rester cohérent : Android/Termux n'a ni Ollama ni psutil disponibles).
+# 0. Platform detection (same logic as the Python script, to stay
+#    consistent: Android/Termux has neither Ollama nor psutil available).
 # ---------------------------------------------------------------------------
 IS_ANDROID=0
 if [ -n "${ANDROID_ROOT:-}" ] || [ -n "${ANDROID_DATA:-}" ] || [[ "${PREFIX:-}" == *com.termux* ]] || [ -f /system/build.prop ]; then
@@ -69,61 +69,61 @@ elif [ "$OS_NAME" = "Linux" ]; then
 else
     PLATFORM="unknown"
 fi
-log "Plateforme détectée : $PLATFORM"
+log "Detected platform: $PLATFORM"
 
-# Modèle Ollama adapté à la machine : mini sur Android (RAM/stockage
-# limités), medium partout ailleurs.
+# Ollama model adapted to the machine: mini on Android (limited
+# RAM/storage), medium everywhere else.
 if [ "$PLATFORM" = "android" ]; then
     DEFAULT_MODEL="$MODEL_MINI"
-    log "Modèle IA retenu pour cette machine : $DEFAULT_MODEL (mini, ~1,3 Go — adapté au mobile)"
+    log "AI model selected for this machine: $DEFAULT_MODEL (mini, ~1.3 GB — suited for mobile)"
 else
     DEFAULT_MODEL="$MODEL_MEDIUM"
-    log "Modèle IA retenu pour cette machine : $DEFAULT_MODEL (medium, ~4,7 Go)"
+    log "AI model selected for this machine: $DEFAULT_MODEL (medium, ~4.7 GB)"
 fi
 
 # ---------------------------------------------------------------------------
 # 1. Ollama
 # ---------------------------------------------------------------------------
-log "Étape 1/5 : vérification d'Ollama..."
+log "Step 1/5: checking Ollama..."
 if command -v ollama >/dev/null 2>&1; then
-    log "Ollama déjà installé ($(command -v ollama))."
+    log "Ollama already installed ($(command -v ollama))."
 else
     case "$PLATFORM" in
         macos)
             if command -v brew >/dev/null 2>&1; then
-                log "Installation d'Ollama via Homebrew (peut prendre quelques minutes)..."
-                brew install ollama || warn "Échec de l'installation Homebrew d'Ollama — l'analyse continuera sans IA."
+                log "Installing Ollama via Homebrew (may take a few minutes)..."
+                brew install ollama || warn "Homebrew installation of Ollama failed — the analysis will continue without AI."
             else
-                warn "Homebrew introuvable — installation d'Ollama via le script officiel..."
-                curl -fsSL https://ollama.com/install.sh | sh || warn "Échec de l'installation automatique d'Ollama — l'analyse continuera sans IA."
+                warn "Homebrew not found — installing Ollama via the official script..."
+                curl -fsSL https://ollama.com/install.sh | sh || warn "Automatic Ollama installation failed — the analysis will continue without AI."
             fi
             ;;
         linux)
-            log "Installation d'Ollama via le script officiel (peut demander le mot de passe sudo)..."
-            curl -fsSL https://ollama.com/install.sh | sh || warn "Échec de l'installation automatique d'Ollama — l'analyse continuera sans IA."
+            log "Installing Ollama via the official script (may prompt for the sudo password)..."
+            curl -fsSL https://ollama.com/install.sh | sh || warn "Automatic Ollama installation failed — the analysis will continue without AI."
             ;;
         android)
-            # Termux fournit désormais un paquet ollama dans ses dépôts —
-            # on tente, et on dégrade proprement si indisponible (anciennes
-            # versions de Termux, dépôt non synchronisé...).
+            # Termux now provides an ollama package in its repos —
+            # we try it, and degrade gracefully if unavailable (older
+            # Termux versions, un-synced repo...).
             if command -v pkg >/dev/null 2>&1; then
-                log "Installation d'Ollama via pkg (Termux)..."
-                pkg install -y ollama || warn "Paquet ollama indisponible dans ce Termux — l'enrichissement IA restera désactivé, l'analyse fonctionnera quand même (moteur de risque par règles toujours actif)."
+                log "Installing Ollama via pkg (Termux)..."
+                pkg install -y ollama || warn "ollama package unavailable in this Termux — AI enrichment will stay disabled, the analysis will still work (rule-based risk engine still active)."
             else
-                warn "Commande 'pkg' introuvable (Termux ?) — Ollama non installé, l'analyse continuera sans IA."
+                warn "'pkg' command not found (Termux?) — Ollama not installed, the analysis will continue without AI."
             fi
             ;;
         *)
-            warn "Plateforme non reconnue ($OS_NAME) — installe Ollama manuellement depuis https://ollama.com/download si tu veux l'enrichissement IA."
+            warn "Unrecognized platform ($OS_NAME) — install Ollama manually from https://ollama.com/download if you want AI enrichment."
             ;;
     esac
 fi
 
-# Démarre le serveur quel que soit l'OS dès que le binaire ollama existe
-# (y compris Termux, où le paquet vient peut-être d'être installé).
+# Start the server regardless of OS as soon as the ollama binary exists
+# (including on Termux, where the package may have just been installed).
 if command -v ollama >/dev/null 2>&1; then
     if ! curl -fsS "$OLLAMA_HOST/api/tags" >/dev/null 2>&1; then
-        log "Démarrage du serveur Ollama en arrière-plan..."
+        log "Starting the Ollama server in the background..."
         nohup ollama serve >/tmp/ollama_serve.log 2>&1 &
         for _ in $(seq 1 15); do
             curl -fsS "$OLLAMA_HOST/api/tags" >/dev/null 2>&1 && break
@@ -133,24 +133,24 @@ if command -v ollama >/dev/null 2>&1; then
 fi
 
 # ---------------------------------------------------------------------------
-# 2. Modèle Ollama par défaut
+# 2. Default Ollama model
 # ---------------------------------------------------------------------------
-log "Étape 2/5 : vérification du modèle Ollama ($DEFAULT_MODEL)..."
+log "Step 2/5: checking the Ollama model ($DEFAULT_MODEL)..."
 if command -v ollama >/dev/null 2>&1 && curl -fsS "$OLLAMA_HOST/api/tags" >/dev/null 2>&1; then
     if ollama list 2>/dev/null | grep -q "^${DEFAULT_MODEL%%:*}"; then
-        log "Modèle déjà présent."
+        log "Model already present."
     else
-        log "Téléchargement du modèle $DEFAULT_MODEL (peut prendre du temps selon ta connexion)..."
-        ollama pull "$DEFAULT_MODEL" || warn "Échec du téléchargement du modèle — l'analyse continuera sans IA (relance plus tard : ollama pull $DEFAULT_MODEL)."
+        log "Downloading model $DEFAULT_MODEL (may take a while depending on your connection)..."
+        ollama pull "$DEFAULT_MODEL" || warn "Model download failed — the analysis will continue without AI (retry later: ollama pull $DEFAULT_MODEL)."
     fi
 else
-    log "Étape ignorée (Ollama indisponible sur cette plateforme ou serveur injoignable)."
+    log "Step skipped (Ollama unavailable on this platform, or server unreachable)."
 fi
 
 # ---------------------------------------------------------------------------
 # 3. Python 3
 # ---------------------------------------------------------------------------
-log "Étape 3/5 : vérification de Python 3..."
+log "Step 3/5: checking Python 3..."
 PYTHON_BIN=""
 for candidate in python3 python; do
     if command -v "$candidate" >/dev/null 2>&1; then
@@ -163,13 +163,13 @@ for candidate in python3 python; do
 done
 
 if [ -z "$PYTHON_BIN" ]; then
-    log "Python 3 introuvable — installation..."
+    log "Python 3 not found — installing..."
     case "$PLATFORM" in
         macos)
             if command -v brew >/dev/null 2>&1; then
-                brew install python || { err "Échec de l'installation de Python via Homebrew."; exit 1; }
+                brew install python || { err "Failed to install Python via Homebrew."; exit 1; }
             else
-                err "Python 3 introuvable et Homebrew absent. Installe Python depuis https://www.python.org/downloads/ puis relance ce script."
+                err "Python 3 not found and Homebrew missing. Install Python from https://www.python.org/downloads/ then rerun this script."
                 exit 1
             fi
             ;;
@@ -185,20 +185,20 @@ if [ -z "$PYTHON_BIN" ]; then
             elif command -v zypper >/dev/null 2>&1; then
                 sudo zypper install -y python3 python3-pip
             else
-                err "Gestionnaire de paquets non reconnu automatiquement. Installe Python 3 manuellement puis relance ce script."
+                err "Package manager not automatically recognized. Install Python 3 manually then rerun this script."
                 exit 1
             fi
             ;;
         android)
             if command -v pkg >/dev/null 2>&1; then
-                pkg install -y python || { err "Échec de l'installation de Python via pkg."; exit 1; }
+                pkg install -y python || { err "Failed to install Python via pkg."; exit 1; }
             else
-                err "Commande 'pkg' introuvable (es-tu bien sous Termux ?). Installe Python manuellement : pkg install python"
+                err "'pkg' command not found (are you running Termux?). Install Python manually: pkg install python"
                 exit 1
             fi
             ;;
         *)
-            err "Plateforme non reconnue ($OS_NAME). Installe Python 3 manuellement puis relance ce script."
+            err "Unrecognized platform ($OS_NAME). Install Python 3 manually then rerun this script."
             exit 1
             ;;
     esac
@@ -211,18 +211,18 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 if [ -z "$PYTHON_BIN" ]; then
-    err "Python 3 toujours introuvable après tentative d'installation automatique. Abandon."
+    err "Python 3 still not found after attempting automatic installation. Aborting."
     exit 1
 fi
-log "Python détecté : $("$PYTHON_BIN" --version 2>&1)"
+log "Python detected: $("$PYTHON_BIN" --version 2>&1)"
 
 # ---------------------------------------------------------------------------
-# 4. Environnement virtuel + activation
+# 4. Virtual environment + activation
 # ---------------------------------------------------------------------------
-log "Étape 4/5 : création de l'environnement virtuel (.venv)..."
+log "Step 4/5: creating the virtual environment (.venv)..."
 if [ ! -d "$VENV_DIR" ]; then
     "$PYTHON_BIN" -m venv "$VENV_DIR" || {
-        err "Échec de la création du venv (le module 'venv' est-il installé ? sur Debian/Ubuntu : sudo apt-get install python3-venv)."
+        err "Failed to create the venv (is the 'venv' module installed? on Debian/Ubuntu: sudo apt-get install python3-venv)."
         exit 1
     }
 fi
@@ -231,41 +231,41 @@ fi
 if [ -f "$VENV_DIR/bin/activate" ]; then
     source "$VENV_DIR/bin/activate"
 else
-    err "Script d'activation introuvable ($VENV_DIR/bin/activate)."
+    err "Activation script not found ($VENV_DIR/bin/activate)."
     exit 1
 fi
-log "Venv actif : $(command -v python)"
+log "Venv active: $(command -v python)"
 
 # ---------------------------------------------------------------------------
-# 5. Dépendances Python
+# 5. Python dependencies
 # ---------------------------------------------------------------------------
-log "Étape 5/5 : installation des dépendances Python..."
+log "Step 5/5: installing Python dependencies..."
 python -m pip install --upgrade pip --quiet
 
 DEPS="networkx matplotlib requests"
 if [ "$PLATFORM" != "android" ]; then
-    # psutil n'est pas installable sur Android — analyseur_processus_allinone.py
-    # bascule automatiquement sur son propre backend /proc dans ce cas.
+    # psutil is not installable on Android — process_analyzer_allinone.py
+    # automatically falls back to its own /proc backend in that case.
     DEPS="psutil $DEPS"
 fi
 
 # shellcheck disable=SC2086
 if ! python -m pip install --quiet $DEPS; then
-    warn "Échec via pip standard — nouvelle tentative avec --break-system-packages (environnements Python 'gérés en externe', PEP 668)..."
+    warn "Standard pip failed — retrying with --break-system-packages (externally-managed Python environments, PEP 668)..."
     # shellcheck disable=SC2086
     if ! python -m pip install --quiet --break-system-packages $DEPS; then
         if [ "$PLATFORM" = "android" ]; then
-            err "Échec de l'installation des dépendances. Sur Termux, essaie le paquet précompilé si matplotlib échoue : pkg install matplotlib"
+            err "Failed to install dependencies. On Termux, try the precompiled package if matplotlib fails: pkg install matplotlib"
         else
-            err "Échec de l'installation des dépendances Python."
+            err "Failed to install Python dependencies."
         fi
         exit 1
     fi
 fi
-log "Dépendances installées."
+log "Dependencies installed."
 
 # ---------------------------------------------------------------------------
-# Lancement
+# Launch
 # ---------------------------------------------------------------------------
-log "Tout est prêt. Lancement de l'analyseur..."
+log "Everything is ready. Launching the analyzer..."
 exec python "$PY_SCRIPT" "$@"

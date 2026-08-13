@@ -1,10 +1,18 @@
 version: 2
 updates:
+  # pip: security updates ONLY (open-pull-requests-limit: 0
+  # disables version bumps, not security alerts/PRs).
+  # Why: requirements.txt uses LOWER bounds (>=) that document the
+  # minimum tested versions, not target versions — bumping them to the
+  # latest versions breaks the Python 3.9 support advertised in the
+  # README (requests>=2.33, matplotlib>=3.10, and networkx>=3.3 all
+  # require Python >= 3.10, see Dependabot PRs #3/#4/#5, closed, CI red
+  # on 3.9). Re-enable if the project ever drops Python 3.9 support.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
     labels:
       - "dependencies"
 

@@ -1,29 +1,29 @@
 <#
 .SYNOPSIS
-    Installe automatiquement tout ce qu'il faut pour faire tourner
-    analyseur_processus_allinone.py sur une machine Windows vierge, puis
-    lance le script.
+    Automatically installs everything needed to run
+    process_analyzer_allinone.py on a clean Windows machine, then
+    launches the script.
 
 .DESCRIPTION
-    Ordre des etapes (chacune verifie d'abord si c'est deja present, et ne
-    reinstalle rien inutilement) :
-      1. Ollama (moteur IA local) - via winget si disponible, sinon
-         telechargement direct de l'installeur officiel.
-      2. Un modele Ollama adapte a la machine : MEDIUM (llama3:latest,
-         ~4,7 Go) sur Windows — la variante MINI (llama3.2:1b) est reservee
-         a Android/Termux, gere par install.sh (meme politique de choix).
-      3. Python 3 - via winget si disponible, sinon telechargement direct.
-      4. Creation + activation d'un environnement virtuel (.venv).
-      5. Dependances Python (pip).
-      6. Lancement de analyseur_processus_allinone.py.
+    Order of steps (each one first checks whether it's already present, and
+    never reinstalls anything unnecessarily):
+      1. Ollama (local AI engine) - via winget if available, otherwise
+         direct download of the official installer.
+      2. An Ollama model suited to the machine: MEDIUM (llama3:latest,
+         ~4.7 GB) on Windows — the MINI variant (llama3.2:1b) is reserved
+         for Android/Termux, handled by install.sh (same selection policy).
+      3. Python 3 - via winget if available, otherwise direct download.
+      4. Creation + activation of a virtual environment (.venv).
+      5. Python dependencies (pip).
+      6. Launching process_analyzer_allinone.py.
 
 .NOTES
-    Si l'execution de scripts est bloquee par la politique par defaut de
-    Windows, lance ce script avec :
+    If script execution is blocked by Windows' default policy, run this
+    script with:
         powershell -ExecutionPolicy Bypass -File install.ps1
 
-    Les arguments passes a ce script sont transmis tels quels au script
-    Python (ex : .\install.ps1 --no-enrich --max-processes 50).
+    Arguments passed to this script are forwarded as-is to the Python
+    script (e.g.: .\install.ps1 --no-enrich --max-processes 50).
 #>
 
 param(
@@ -34,54 +34,53 @@ param(
 $ErrorActionPreference = "Continue"
 
 $ScriptDir    = Split-Path -Parent $MyInvocation.MyCommand.Path
-$PyScript     = Join-Path $ScriptDir "analyseur_processus_allinone.py"
+$PyScript     = Join-Path $ScriptDir "process_analyzer_allinone.py"
 $VenvDir      = Join-Path $ScriptDir ".venv"
-# Modele MEDIUM (~4,7 Go) — politique par machine : mini (llama3.2:1b) sur
-# Android/Termux via install.sh, medium sur macOS/Windows/Linux.
+# MEDIUM model (~4.7 GB) — per-machine policy: mini (llama3.2:1b) on
+# Android/Termux via install.sh, medium on macOS/Windows/Linux.
 $DefaultModel = "llama3:latest"
 $OllamaHost   = "http://localhost:11434"
 
 function Log  ($msg) { Write-Host "`n[install] $msg" -ForegroundColor Cyan }
-function Warn ($msg) { Write-Host "[attention] $msg" -ForegroundColor Yellow }
-function Err  ($msg) { Write-Host "[erreur] $msg" -ForegroundColor Red }
+function Warn ($msg) { Write-Host "[warning] $msg" -ForegroundColor Yellow }
+function Err  ($msg) { Write-Host "[error] $msg" -ForegroundColor Red }
 
 function Update-SessionPath {
-    # Les installeurs (winget, .exe) modifient le PATH machine/utilisateur,
-    # jamais celui du processus PowerShell courant : on le recharge pour
-    # pouvoir retrouver les binaires fraichement installes sans rouvrir de
-    # nouvelle fenetre.
+    # Installers (winget, .exe) modify the machine/user PATH, never the
+    # current PowerShell process' PATH: we reload it so freshly installed
+    # binaries can be found without reopening a new window.
     $machine = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
     $user    = [System.Environment]::GetEnvironmentVariable("Path", "User")
     $env:Path = "$machine;$user"
 }
 
 if (-not (Test-Path $PyScript)) {
-    Err "analyseur_processus_allinone.py introuvable a cote de ce script ($ScriptDir)."
-    Err "Place install.ps1 dans le meme dossier que analyseur_processus_allinone.py puis relance."
+    Err "process_analyzer_allinone.py not found next to this script ($ScriptDir)."
+    Err "Place install.ps1 in the same folder as process_analyzer_allinone.py and rerun."
     exit 1
 }
 
 # ---------------------------------------------------------------------------
 # 1. Ollama
 # ---------------------------------------------------------------------------
-Log "Etape 1/5 : verification d'Ollama..."
+Log "Step 1/5: checking Ollama..."
 $ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
 if ($ollamaCmd) {
-    Log "Ollama deja installe ($($ollamaCmd.Source))."
+    Log "Ollama already installed ($($ollamaCmd.Source))."
 } else {
     $winget = Get-Command winget -ErrorAction SilentlyContinue
     if ($winget) {
-        Log "Installation d'Ollama via winget..."
+        Log "Installing Ollama via winget..."
         winget install --id Ollama.Ollama -e --silent --accept-package-agreements --accept-source-agreements
-        if ($LASTEXITCODE -ne 0) { Warn "winget a echoue pour Ollama - l'analyse continuera sans IA." }
+        if ($LASTEXITCODE -ne 0) { Warn "winget failed for Ollama - the analysis will continue without AI." }
     } else {
-        Log "winget indisponible - telechargement direct de l'installeur Ollama..."
+        Log "winget unavailable - downloading the Ollama installer directly..."
         $installer = Join-Path $env:TEMP "OllamaSetup.exe"
         try {
             Invoke-WebRequest -Uri "https://ollama.com/download/OllamaSetup.exe" -OutFile $installer -UseBasicParsing
             Start-Process -FilePath $installer -ArgumentList "/silent" -Wait
         } catch {
-            Warn "Echec du telechargement/installation automatique d'Ollama : $_ - l'analyse continuera sans IA."
+            Warn "Automatic Ollama download/installation failed: $_ - the analysis will continue without AI."
         }
     }
     Update-SessionPath
@@ -95,7 +94,7 @@ if ($ollamaCmd) {
         $reachable = $true
     } catch { }
     if (-not $reachable) {
-        Log "Demarrage du serveur Ollama en arriere-plan..."
+        Log "Starting the Ollama server in the background..."
         Start-Process -FilePath $ollamaCmd.Source -ArgumentList "serve" -WindowStyle Hidden
         for ($i = 0; $i -lt 15; $i++) {
             Start-Sleep -Seconds 2
@@ -106,34 +105,34 @@ if ($ollamaCmd) {
             } catch { }
         }
     }
-    if (-not $reachable) { Warn "Le serveur Ollama ne repond pas encore - l'assistant du script Python proposera de reessayer." }
+    if (-not $reachable) { Warn "The Ollama server is not responding yet - the Python script's assistant will offer to retry." }
 } else {
-    Warn "Ollama n'a pas pu etre installe automatiquement - l'enrichissement IA sera desactive (moteur de risque par regles toujours actif). Installe-le manuellement depuis https://ollama.com/download si besoin."
+    Warn "Ollama could not be installed automatically - AI enrichment will be disabled (rule-based risk engine still active). Install it manually from https://ollama.com/download if needed."
 }
 
 # ---------------------------------------------------------------------------
-# 2. Modele Ollama par defaut
+# 2. Default Ollama model
 # ---------------------------------------------------------------------------
-Log "Etape 2/5 : verification du modele Ollama ($DefaultModel)..."
+Log "Step 2/5: checking the Ollama model ($DefaultModel)..."
 $ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
 if ($ollamaCmd) {
     $modelBase = $DefaultModel.Split(":")[0]
     $models = & ollama list 2>$null
     if ($models -match [regex]::Escape($modelBase)) {
-        Log "Modele deja present."
+        Log "Model already present."
     } else {
-        Log "Telechargement du modele $DefaultModel (plusieurs Go, peut prendre du temps selon ta connexion)..."
+        Log "Downloading model $DefaultModel (several GB, may take a while depending on your connection)..."
         & ollama pull $DefaultModel
-        if ($LASTEXITCODE -ne 0) { Warn "Echec du telechargement du modele - l'analyse continuera sans IA (relance plus tard : ollama pull $DefaultModel)." }
+        if ($LASTEXITCODE -ne 0) { Warn "Model download failed - the analysis will continue without AI (retry later: ollama pull $DefaultModel)." }
     }
 } else {
-    Log "Etape ignoree (Ollama indisponible)."
+    Log "Step skipped (Ollama unavailable)."
 }
 
 # ---------------------------------------------------------------------------
 # 3. Python 3
 # ---------------------------------------------------------------------------
-Log "Etape 3/5 : verification de Python 3..."
+Log "Step 3/5: checking Python 3..."
 $pythonCmd = $null
 foreach ($candidate in @("python", "python3", "py")) {
     $cmd = Get-Command $candidate -ErrorAction SilentlyContinue
@@ -144,20 +143,20 @@ foreach ($candidate in @("python", "python3", "py")) {
 }
 
 if (-not $pythonCmd) {
-    Log "Python 3 introuvable - installation..."
+    Log "Python 3 not found - installing..."
     $winget = Get-Command winget -ErrorAction SilentlyContinue
     if ($winget) {
         winget install --id Python.Python.3.12 -e --silent --accept-package-agreements --accept-source-agreements
-        if ($LASTEXITCODE -ne 0) { Err "winget a echoue pour Python."; exit 1 }
+        if ($LASTEXITCODE -ne 0) { Err "winget failed for Python."; exit 1 }
     } else {
-        Log "winget indisponible - telechargement direct de l'installeur Python..."
+        Log "winget unavailable - downloading the Python installer directly..."
         $installer = Join-Path $env:TEMP "python-installer.exe"
         try {
             Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.12.4/python-3.12.4-amd64.exe" -OutFile $installer -UseBasicParsing
             Start-Process -FilePath $installer -ArgumentList "/quiet InstallAllUsers=0 PrependPath=1" -Wait
         } catch {
-            Err "Echec du telechargement/installation automatique de Python : $_"
-            Err "Installe-le manuellement depuis https://www.python.org/downloads/ puis relance ce script."
+            Err "Automatic Python download/installation failed: $_"
+            Err "Install it manually from https://www.python.org/downloads/ then rerun this script."
             exit 1
         }
     }
@@ -169,50 +168,50 @@ if (-not $pythonCmd) {
 }
 
 if (-not $pythonCmd) {
-    Err "Python 3 introuvable meme apres tentative d'installation automatique. Installe-le manuellement depuis https://www.python.org/downloads/ (cocher 'Add python.exe to PATH') puis relance ce script."
+    Err "Python 3 still not found even after attempting automatic installation. Install it manually from https://www.python.org/downloads/ (check 'Add python.exe to PATH') then rerun this script."
     exit 1
 }
-Log "Python detecte : $(& $pythonCmd --version 2>&1)"
+Log "Python detected: $(& $pythonCmd --version 2>&1)"
 
 # ---------------------------------------------------------------------------
-# 4. Environnement virtuel + activation
+# 4. Virtual environment + activation
 # ---------------------------------------------------------------------------
-Log "Etape 4/5 : creation de l'environnement virtuel (.venv)..."
+Log "Step 4/5: creating the virtual environment (.venv)..."
 if (-not (Test-Path $VenvDir)) {
     & $pythonCmd -m venv $VenvDir
     if ($LASTEXITCODE -ne 0) {
-        Err "Echec de la creation du venv."
+        Err "Failed to create the venv."
         exit 1
     }
 }
 
 $activate = Join-Path $VenvDir "Scripts\Activate.ps1"
 if (-not (Test-Path $activate)) {
-    Err "Script d'activation introuvable ($activate)."
+    Err "Activation script not found ($activate)."
     exit 1
 }
 . $activate
-Log "Venv actif : $((Get-Command python).Source)"
+Log "Venv active: $((Get-Command python).Source)"
 
 # ---------------------------------------------------------------------------
-# 5. Dependances Python
+# 5. Python dependencies
 # ---------------------------------------------------------------------------
-Log "Etape 5/5 : installation des dependances Python..."
+Log "Step 5/5: installing Python dependencies..."
 python -m pip install --upgrade pip --quiet
 
 python -m pip install --quiet psutil networkx matplotlib requests
 if ($LASTEXITCODE -ne 0) {
-    Warn "Echec via pip standard - nouvelle tentative avec --break-system-packages..."
+    Warn "Standard pip failed - retrying with --break-system-packages..."
     python -m pip install --quiet --break-system-packages psutil networkx matplotlib requests
     if ($LASTEXITCODE -ne 0) {
-        Err "Echec de l'installation des dependances Python."
+        Err "Failed to install Python dependencies."
         exit 1
     }
 }
-Log "Dependances installees."
+Log "Dependencies installed."
 
 # ---------------------------------------------------------------------------
-# Lancement
+# Launch
 # ---------------------------------------------------------------------------
-Log "Tout est pret. Lancement de l'analyseur..."
+Log "Everything is ready. Launching the analyzer..."
 python $PyScript @PyArgs

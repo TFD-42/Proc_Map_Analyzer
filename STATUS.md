@@ -1,17 +1,17 @@
-# Statut du projet
+# Project Status
 
-**Statut actuel :** En développement actif (projet personnel / d'étude, publié sur GitHub)
+**Current status:** Actively in development (personal / study project, published on GitHub)
 
-**Dernière activité significative :** 2026-08-13
+**Last significant activity:** 2026-08-13
 
-## Ce que ça signifie
+## What this means
 
-Ce projet vit sur GitHub ([TFD-42/Proc_Map_Analyzer](https://github.com/TFD-42/Proc_Map_Analyzer)). Pas encore de release taguée, pas de SLA de maintenance, pas d'engagement de compatibilité entre deux versions du script tant qu'aucun tag n'existe. L'objectif premier reste l'apprentissage et l'usage personnel — les contributions et signalements sont bienvenus (voir `CONTRIBUTING.md`), avec un traitement best-effort.
+This project lives on GitHub ([TFD-42/Proc_Map_Analyzer](https://github.com/TFD-42/Proc_Map_Analyzer)). No tagged release yet, no maintenance SLA, no compatibility commitment between two versions of the script as long as no tag exists. The primary goal remains learning and personal use — contributions and reports are welcome (see `CONTRIBUTING.md`), handled on a best-effort basis.
 
 ## Roadmap
 
-Voir [`PLAN_ENRICHISSEMENT.md`](PLAN_ENRICHISSEMENT.md) pour la feuille de route détaillée et priorisée : 25 enrichissements identifiés sur 8 domaines (sécurité, collecte, graphe, maintenance, export, IA locale, interface HTML). Une partie est déjà implémentée (moteur de risque par règles, visibilité de la collecte incomplète, filtrage du graphe, rapport de synthèse, export CSV) ; le reste — notamment le découpage du fichier monolithique en modules et une vraie suite de tests — reste volontairement en roadmap, pour ne pas prendre le risque d'une régression mal validée.
+See [`ENRICHMENT_PLAN.md`](ENRICHMENT_PLAN.md) for the detailed, prioritized roadmap: 25 enrichments identified across 8 areas (security, collection, graph, maintenance, export, local AI, HTML interface). Some are already implemented (rule-based risk engine, incomplete-collection visibility, graph filtering, summary report, CSV export); the rest — notably splitting the monolithic file into modules and a real test suite — remains deliberately on the roadmap, to avoid the risk of a poorly validated regression.
 
-## État de la CI
+## CI Status
 
-Voir l'onglet Actions du dépôt une fois poussé sur GitHub, ou le badge dans [README.md](README.md) (à ajouter une fois la CI vérifiée verte une première fois — voir la note dans le gabarit README du skill `github-repo-bootstrapper`, non appliquée ici pour ne pas écraser le README existant du projet).
+See the repository's Actions tab once pushed to GitHub, or the badge in [README.md](README.md) (to be added once CI has been verified green for the first time — see the note in the README template of the `github-repo-bootstrapper` skill, not applied here so as not to overwrite the project's existing README).

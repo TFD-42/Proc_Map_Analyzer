@@ -1,29 +1,29 @@
-# Code de conduite des contributeurs
+# Contributor Covenant Code of Conduct
 
-Adapté du [Contributor Covenant](https://www.contributor-covenant.org), version 2.1 (traduction/adaptation libre, pas la traduction officielle certifiée — se référer au texte anglais original en cas d'ambiguïté).
+Adapted from the [Contributor Covenant](https://www.contributor-covenant.org), version 2.1. The wording below follows the standard Contributor Covenant 2.1 text, except for the "Enforcement" section, which has been customized to reflect this project's actual reporting channels.
 
-## Notre engagement
+## Our Pledge
 
-En tant que membres, contributeurs et responsables de ce projet, nous nous engageons à faire de la participation à notre communauté une expérience sans harcèlement pour tout le monde, quel que soit l'âge, la corpulence, un handicap visible ou invisible, l'origine ethnique, les caractéristiques sexuelles, l'identité et l'expression de genre, le niveau d'expérience, l'éducation, le statut socio-économique, la nationalité, l'apparence personnelle, la race, la religion, ou l'identité et l'orientation sexuelles.
+We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation.
 
-## Nos standards
+## Our Standards
 
-Exemples de comportements qui contribuent à un environnement positif : faire preuve d'empathie et de bienveillance, respecter les opinions différentes, donner et accepter avec grâce des retours constructifs, et se concentrer sur ce qui est le mieux pour la communauté.
+Examples of behavior that contributes to a positive environment include demonstrating empathy and kindness, respecting differing opinions, giving and gracefully accepting constructive feedback, and focusing on what is best for the community.
 
-Exemples de comportements inacceptables : le harcèlement, le trolling, les commentaires insultants ou dénigrants, le harcèlement public ou privé, et tout autre comportement pouvant raisonnablement être considéré comme inapproprié dans un cadre professionnel.
+Examples of unacceptable behavior include harassment, trolling, insulting or derogatory comments, public or private harassment, and any other conduct which could reasonably be considered inappropriate in a professional setting.
 
-## Responsabilités d'application
+## Enforcement Responsibilities
 
-Les mainteneurs du projet sont responsables de clarifier et de faire respecter les standards de comportement acceptable, et prendront les mesures correctives appropriées en réponse à tout comportement qu'ils jugent inapproprié, menaçant, offensant ou nuisible.
+Project maintainers are responsible for clarifying and enforcing our standards of acceptable behavior and will take appropriate and fair corrective action in response to any behavior they deem inappropriate, threatening, offensive, or harmful.
 
-## Portée
+## Scope
 
-Ce code de conduite s'applique dans tous les espaces du projet, ainsi que lorsqu'une personne représente officiellement le projet dans des espaces publics.
+This Code of Conduct applies within all project spaces, and also applies when an individual is officially representing the project in public spaces.
 
-## Application
+## Enforcement
 
-Les cas de comportement abusif, harcelant ou autrement inacceptable peuvent être signalés en privé au mainteneur via GitHub ([@TFD-42](https://github.com/TFD-42)) ou via les [outils de signalement de GitHub](https://docs.github.com/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam) — aucun canal email n'est publié pour ce projet. Toutes les plaintes seront examinées et traitées rapidement et équitablement.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported privately to the maintainer via GitHub ([@TFD-42](https://github.com/TFD-42)) or via [GitHub's reporting tools](https://docs.github.com/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam) — no email channel is published for this project. All complaints will be reviewed and investigated promptly and fairly.
 
 ## Attribution
 
-Ce code de conduite est adapté du [Contributor Covenant](https://www.contributor-covenant.org), version 2.1.
+This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org), version 2.1.

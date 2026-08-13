@@ -1,29 +1,29 @@
-## Résumé
+## Summary
 
-<!-- Qu'est-ce que cette PR change, et pourquoi ? -->
+<!-- What does this PR change, and why? -->
 
-## Type de changement
+## Type of change
 
-- [ ] Correction de bug
-- [ ] Nouvelle fonctionnalité
-- [ ] Changement cassant (breaking change)
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
 - [ ] Documentation
 - [ ] Chore / refactor
 
-## Comment ça a été testé
+## How was this tested
 
-<!-- Pas de suite de tests automatisée pour l'instant (voir CONTRIBUTING.md) :
-     indiquer au minimum `python3 -m py_compile analyseur_processus_allinone.py`
-     et un test d'exécution manuel (`--no-enrich --max-processes N`), plus
-     toute vérification visuelle du HTML généré si le rendu est concerné. -->
+<!-- No automated test suite for now (see CONTRIBUTING.md):
+     at minimum indicate `python3 -m py_compile process_analyzer_allinone.py`
+     and a manual run test (`--no-enrich --max-processes N`), plus any
+     visual check of the generated HTML if the rendering is affected. -->
 
 ## Checklist
 
-- [ ] `python3 -m py_compile analyseur_processus_allinone.py` passe
-- [ ] Test d'exécution manuel effectué (`--no-enrich --max-processes 30` ou équivalent)
-- [ ] Documentation mise à jour si pertinent (README, CHANGELOG.md, PLAN_ENRICHISSEMENT.md)
-- [ ] Aucun secret ni donnée réelle de machine (IP, chemin, utilisateur) ajouté dans un fichier destiné à être commité — voir `secret-scan-report.md`
+- [ ] `python3 -m py_compile process_analyzer_allinone.py` passes
+- [ ] Manual run test performed (`--no-enrich --max-processes 30` or equivalent)
+- [ ] Documentation updated if relevant (README, CHANGELOG.md, ENRICHMENT_PLAN.md)
+- [ ] No secrets or real machine data (IP, path, username) added to a file intended to be committed — see `secret-scan-report.md`
 
-## Issues liées
+## Related issues
 
 <!-- Closes #123 -->
