@@ -1,24 +1,24 @@
 ---
-name: Demande de fonctionnalité
-about: Proposer une idée ou une amélioration
+name: Feature request
+about: Propose an idea or improvement
 title: "[Feature] "
 labels: enhancement
 assignees: ''
 ---
 
-## Problème
+## Problem
 
-<!-- Quel problème ça résout ? Quelle est la limite actuelle ? -->
+<!-- What problem does this solve? What's the current limitation? -->
 
-## Solution proposée
+## Proposed solution
 
-<!-- Que voudrais-tu qu'il se passe ? -->
+<!-- What would you like to happen? -->
 
-## Alternatives envisagées
+## Alternatives considered
 
-<!-- Des solutions ou contournements alternatifs déjà envisagés -->
+<!-- Any alternative solutions or workarounds already considered -->
 
-## Contexte additionnel
+## Additional context
 
-<!-- Regarder d'abord PLAN_ENRICHISSEMENT.md : cette idée y figure peut-être
-     déjà (25 enrichissements identifiés, une partie en roadmap) -->
+<!-- Check ENRICHMENT_PLAN.md first: this idea may already be listed
+     there (25 enrichments identified, some on the roadmap) -->

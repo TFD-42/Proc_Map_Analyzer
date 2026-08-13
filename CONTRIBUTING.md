@@ -1,10 +1,10 @@
-# Contribuer à Analyseur de processus système
+# Contributing to System Process Analyzer
 
-Merci de l'intérêt porté à ce projet. Ce document explique comment s'installer localement et comment les changements sont validés — en restant honnête sur ce qui existe réellement aujourd'hui (pas de suite de tests automatisée pour l'instant, voir plus bas).
+Thanks for your interest in this project. This document explains how to set up locally and how changes are validated — staying honest about what actually exists today (no automated test suite yet, see below).
 
 ## Installation
 
-Le plus simple : utiliser l'installeur fourni, qui gère Ollama, le modèle par défaut, Python, l'environnement virtuel et les dépendances en une seule commande (voir le README, section « Installation automatique ») :
+Easiest: use the provided installer, which handles Ollama, the default model, Python, the virtual environment, and dependencies in a single command (see the README, "Automatic installation" section):
 
 ```bash
 # macOS / Linux / Android-Termux
@@ -14,50 +14,50 @@ chmod +x install.sh && ./install.sh
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-Installation manuelle équivalente :
+Equivalent manual installation:
 
 ```bash
-git clone <URL-du-dépôt>   # une fois ce projet réellement poussé sur GitHub
+git clone <repo-URL>   # once this project is actually pushed to GitHub
 cd process_graph_tool
 python3 -m venv .venv
-source .venv/bin/activate   # .venv\Scripts\Activate.ps1 sous Windows
-pip install -r requirements.txt   # retirer psutil sur Android/Termux, voir requirements.txt
+source .venv/bin/activate   # .venv\Scripts\Activate.ps1 on Windows
+pip install -r requirements.txt   # remove psutil on Android/Termux, see requirements.txt
 ```
 
-## Valider un changement (pas de suite de tests automatisée pour l'instant)
+## Validating a change (no automated test suite yet)
 
-Il n'existe pas encore de suite de tests unitaires (`pytest`) — c'est un item identifié dans [`PLAN_ENRICHISSEMENT.md`](PLAN_ENRICHISSEMENT.md) (section Maintenance, item 14), volontairement laissé en roadmap plutôt que bâclé. En attendant, tout changement doit au minimum passer :
+There is no unit test suite (`pytest`) yet — this is an identified item in [`ENRICHMENT_PLAN.md`](ENRICHMENT_PLAN.md) (Maintenance section, item 14), deliberately left on the roadmap rather than rushed. In the meantime, every change must at minimum pass:
 
 ```bash
-# Vérification de syntaxe
-python3 -m py_compile analyseur_processus_allinone.py
+# Syntax check
+python3 -m py_compile process_analyzer_allinone.py
 
-# Test d'exécution réel, rapide et sans dépendance à Ollama
-python3 analyseur_processus_allinone.py --no-enrich --max-processes 30
+# Real execution test, fast and without an Ollama dependency
+python3 process_analyzer_allinone.py --no-enrich --max-processes 30
 ```
 
-Vérifier ensuite le fichier HTML généré (ouverture dans un navigateur : les 5 modes d'affichage, la légende, la recherche, les raccourcis clavier `Ctrl+R`/`Ctrl+`/`Ctrl-`) avant d'ouvrir une pull request touchant au rendu.
+Then check the generated HTML file (open it in a browser: the 5 display modes, the legend, search, keyboard shortcuts `Ctrl+R`/`Ctrl+`/`Ctrl-`) before opening a pull request that touches rendering.
 
-## Style de code
+## Code style
 
-Pas de linter configuré pour l'instant (pas de `ruff`/`flake8` en CI) — rester cohérent avec le style existant du fichier : commentaires et docstrings en français, gestion explicite des erreurs (jamais de `except Exception: pass` silencieux sans commentaire justifiant pourquoi), et documentation des choix de conception non spécifiés par l'utilisateur directement dans la docstring d'en-tête du script (section « Hypothèses posées », `H1`, `H2`, etc.) plutôt que noyés dans les commentaires de fonction.
+No linter configured for now (no `ruff`/`flake8` in CI) — stay consistent with the file's existing style: comments and docstrings in English, explicit error handling (never a silent `except Exception: pass` without a comment justifying why), and documentation of design choices not directly specified by the user in the script's header docstring ("Assumptions made" section, `H1`, `H2`, etc.) rather than buried in function comments.
 
-## Conventions de commit
+## Commit conventions
 
-Pas de convention stricte imposée (pas de `feat:`/`fix:` obligatoire à ce jour) — écrire des messages clairs et à l'impératif, qui expliquent le *pourquoi* du changement, pas seulement le *quoi*.
+No strict convention enforced (no mandatory `feat:`/`fix:` today) — write clear, imperative-mood messages that explain the *why* of the change, not just the *what*.
 
-## Processus de pull request
+## Pull request process
 
-1. Créer une branche depuis la branche par défaut (`main`).
-2. Faire le changement, en gardant `analyseur_processus_allinone.py` comme fichier unique auto-suffisant (c'est une contrainte volontaire du projet, pour rester compilable en un seul exécutable PyInstaller — voir la docstring d'en-tête).
-3. Vérifier avec les commandes de la section précédente.
-4. Ouvrir une pull request en utilisant le gabarit fourni, en décrivant ce qui change et pourquoi.
-5. Une revue et le passage de la CI sont nécessaires avant fusion (voir la configuration de protection de branche, à activer une fois le dépôt poussé sur GitHub).
+1. Create a branch from the default branch (`main`).
+2. Make the change, keeping `process_analyzer_allinone.py` as a single self-contained file (this is a deliberate project constraint, to remain buildable as a single PyInstaller executable — see the header docstring).
+3. Verify with the commands from the previous section.
+4. Open a pull request using the provided template, describing what changes and why.
+5. A review and passing CI are required before merging (see the branch protection configuration, to be enabled once the repository is pushed to GitHub).
 
-## Signaler un bug / proposer une fonctionnalité
+## Reporting a bug / proposing a feature
 
-Utiliser les [gabarits d'issue](.github/ISSUE_TEMPLATE/) une fois le dépôt sur GitHub — ils collectent les informations nécessaires pour trier rapidement.
+Use the [issue templates](.github/ISSUE_TEMPLATE/) once the repository is on GitHub — they collect the information needed to triage quickly.
 
-## Code de conduite
+## Code of conduct
 
-Ce projet suit le [Code de conduite](CODE_OF_CONDUCT.md). En participant, tu acceptes de le respecter.
+This project follows the [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to abide by it.

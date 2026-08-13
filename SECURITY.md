@@ -1,25 +1,25 @@
-# Politique de sécurité
+# Security Policy
 
-## Versions supportées
+## Supported Versions
 
-Ce projet n'a pas encore de version taguée (dépôt local, pas encore de premier tag/release). Tant qu'aucune release n'existe, seule la copie de travail actuelle (branche par défaut) est « supportée » — cette section sera remplacée par un vrai tableau de versions dès le premier tag.
+This project does not yet have a tagged version (local repository, no first tag/release yet). Until a release exists, only the current working copy (default branch) is "supported" — this section will be replaced with a real version table once the first tag exists.
 
-## Portée
+## Scope
 
-`analyseur_processus_allinone.py` analyse les processus **de la machine sur laquelle il tourne**, n'envoie aucune donnée collectée à un service externe, et n'ouvre aucun port réseau. Les deux points de contact réseau du projet sont documentés dans le README (section Confidentialité) :
+`process_analyzer_allinone.py` analyzes processes **on the machine it runs on**, sends no collected data to any external service, and opens no network port. The project's two network touchpoints are documented in the README (Privacy section):
 
-- le chargement de la librairie `3d-force-graph` depuis un CDN public (`unpkg.com`) à l'ouverture du fichier HTML généré ;
-- les appels vers un serveur **Ollama** local (`http://localhost:11434` par défaut, configurable).
+- loading the `3d-force-graph` library from a public CDN (`unpkg.com`) when the generated HTML file is opened;
+- calls to a local **Ollama** server (`http://localhost:11434` by default, configurable).
 
-Une vulnérabilité dans ce projet concernerait typiquement : une exécution de code non prévue via un fichier HTML généré (ex. données de processus mal échappées avant injection dans le HTML/JS), une élévation de privilèges via les installeurs (`install.sh` / `install.ps1`), ou une fuite de données locales (chemins, IP, utilisateur) au-delà de ce qui est documenté.
+A vulnerability in this project would typically involve: unintended code execution via a generated HTML file (e.g., process data improperly escaped before injection into HTML/JS), privilege escalation via the installers (`install.sh` / `install.ps1`), or a leak of local data (paths, IPs, username) beyond what is documented.
 
-## Signaler une vulnérabilité
+## Reporting a Vulnerability
 
-Merci de **ne pas ouvrir d'issue publique** pour un problème de sécurité tant qu'il n'a pas été corrigé.
+Please **do not open a public issue** for a security problem until it has been fixed.
 
-- **Préféré** : le [signalement privé de vulnérabilités GitHub](https://github.com/TFD-42/Proc_Map_Analyzer/security/advisories/new).
-- **Alternative** : contacter le mainteneur en privé via GitHub ([@TFD-42](https://github.com/TFD-42)) — aucun canal email n'est publié pour ce projet.
+- **Preferred**: [GitHub private vulnerability reporting](https://github.com/TFD-42/Proc_Map_Analyzer/security/advisories/new).
+- **Alternative**: contact the maintainer privately via GitHub ([@TFD-42](https://github.com/TFD-42)) — no email channel is published for this project.
 
-Merci d'inclure : une description de la vulnérabilité et de son impact potentiel, les étapes de reproduction (ou une preuve de concept), et les mitigations connues le cas échéant.
+Please include: a description of the vulnerability and its potential impact, reproduction steps (or a proof of concept), and known mitigations if any.
 
-Ce projet est un projet d'étude/local maintenu de façon best-effort (pas de SLA formel) : compte sur un délai de premier retour de l'ordre de quelques jours plutôt qu'une réponse garantie sous 24h.
+This is a study/local project maintained on a best-effort basis (no formal SLA): expect an initial response time on the order of a few days rather than a guaranteed 24-hour reply.

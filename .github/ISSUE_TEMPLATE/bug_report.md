@@ -1,6 +1,6 @@
 ---
-name: Rapport de bug
-about: Signaler quelque chose qui ne fonctionne pas comme attendu
+name: Bug report
+about: Report something that isn't working as expected
 title: "[Bug] "
 labels: bug
 assignees: ''
@@ -8,29 +8,29 @@ assignees: ''
 
 ## Description
 
-<!-- Une description claire du problème -->
+<!-- A clear description of the problem -->
 
-## Étapes de reproduction
+## Steps to reproduce
 
 1.
 2.
 3.
 
-## Comportement attendu
+## Expected behavior
 
-<!-- Ce qui aurait dû se passer -->
+<!-- What should have happened -->
 
-## Comportement observé
+## Observed behavior
 
-<!-- Ce qui s'est réellement passé, y compris les messages d'erreur / traceback complet -->
+<!-- What actually happened, including error messages / full traceback -->
 
-## Environnement
+## Environment
 
-- Version de `analyseur_processus_allinone.py` (ou date de téléchargement/copie) :
-- OS et version (Windows / macOS / Linux — préciser la distribution — / Android-Termux) :
-- Version de Python (`python3 --version`) :
-- Lancé en `.py` brut, en exécutable PyInstaller compilé, ou via `install.sh`/`install.ps1` ?
+- Version of `process_analyzer_allinone.py` (or download/copy date):
+- OS and version (Windows / macOS / Linux — specify the distribution — / Android-Termux):
+- Python version (`python3 --version`):
+- Launched as raw `.py`, as a compiled PyInstaller executable, or via `install.sh`/`install.ps1`?
 
-## Contexte additionnel
+## Additional context
 
-<!-- Logs, capture du HTML généré, ou toute autre information utile -->
+<!-- Logs, a screenshot of the generated HTML, or any other useful information -->

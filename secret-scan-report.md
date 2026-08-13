@@ -1,37 +1,37 @@
-# Scan de secrets — /home/claude/process_graph_tool
+# Secret scan — /home/claude/process_graph_tool
 
-Périmètre : tous les fichiers texte du dossier (`analyseur_processus_allinone.py`, `process_graph_analyzer.py`, `README.md`, `PLAN_ENRICHISSEMENT.md`, `Analyser_processus.command`, `Installer_et_lancer.command`, `install.sh`, `install.ps1`, `demo_data.json`, `demo_graph_3d.html`), plus une recherche dédiée de fichiers à risque par nature (`.env`, `*.pem`, `*.key`, `id_rsa*`, `credentials.json`).
+Scope: all text files in the folder (`process_analyzer_allinone.py`, `process_graph_analyzer.py`, `README.md`, `ENRICHMENT_PLAN.md`, `Analyze_Processes.command`, `Install_and_Run.command`, `install.sh`, `install.ps1`, `demo_data.json`, `demo_graph_3d.html`), plus a dedicated search for inherently risky files (`.env`, `*.pem`, `*.key`, `id_rsa*`, `credentials.json`).
 
-Note : ce dossier n'est toujours pas un dépôt git (`git status` → `fatal: not a git repository`), donc l'analyse porte sur l'ensemble des fichiers du répertoire plutôt que sur `git ls-files`. Mise à jour de la précédente passe (12/08, 12:48) : ajoute au périmètre `install.sh` et `install.ps1`, nouveaux depuis.
+Note: this folder is still not a git repository (`git status` → `fatal: not a git repository`), so the analysis covers all files in the directory rather than `git ls-files`. Update to the previous pass (08/12, 12:48): adds `install.sh` and `install.ps1` to the scope, new since then.
 
-## Secrets détectés (valeurs jamais affichées en clair)
+## Secrets detected (values never shown in plaintext)
 
-**Aucun** — recherche par pattern (clés AWS `AKIA...`, clés `sk-...`, tokens GitHub `ghp_...`, tokens Slack `xox...`, blocs `-----BEGIN PRIVATE KEY-----`, variables `*_KEY`/`*_SECRET`/`*_TOKEN`/`*_PASSWORD`/`*_CREDENTIAL` assignées à une valeur) sur le code source, les installeurs et la documentation : aucune correspondance. `install.sh`/`install.ps1` ne font que télécharger des installeurs officiels publics (Ollama, Python) et n'embarquent aucun identifiant.
+**None** — pattern search (AWS keys `AKIA...`, `sk-...` keys, GitHub tokens `ghp_...`, Slack tokens `xox...`, `-----BEGIN PRIVATE KEY-----` blocks, `*_KEY`/`*_SECRET`/`*_TOKEN`/`*_PASSWORD`/`*_CREDENTIAL` variables assigned a value) across the source code, installers, and documentation: no matches. `install.sh`/`install.ps1` only download official public installers (Ollama, Python) and embed no credentials.
 
-## Faux positifs écartés
+## False positives dismissed
 
-| Fichier | Pattern matché | Pourquoi ce n'est pas un vrai secret |
+| File | Pattern matched | Why it's not a real secret |
 |---|---|---|
-| `secret-scan-report.md` (version précédente) | `AKIA...`, `sk-...`, `ghp_...`, `xox...` | Ce sont les motifs de recherche eux-mêmes, cités en toutes lettres dans le rapport pour décrire la méthode — pas des valeurs trouvées dans le code. |
+| `secret-scan-report.md` (previous version) | `AKIA...`, `sk-...`, `ghp_...`, `xox...` | These are the search patterns themselves, spelled out in the report to describe the method — not values found in the code. |
 
-## Constat hors gabarit : données réelles capturées dans les fichiers de démo (toujours présent, non résolu)
+## Out-of-scope finding: real data captured in demo files (still present, unresolved)
 
-Rappel de la passe précédente, statut inchangé — `demo_data.json` et `demo_graph_3d.html` contiennent toujours de vraies données issues de cette machine de développement (deux adresses IP publiques réellement observées, un nom d'utilisateur système réel, des chemins d'exécutables internes réels). Ce n'est pas un secret exploitable au sens classique, mais publier ces fichiers tels quels contredit l'angle « tout reste local » du projet. Détail complet dans l'historique de ce rapport (non reproduit ici pour éviter de re-disperser la donnée) ou en relisant les fichiers concernés directement.
+Carried over from the previous pass, status unchanged — `demo_data.json` and `demo_graph_3d.html` still contain real data from this development machine (two real, publicly observed public IP addresses, a real system username, real internal executable paths). This is not an exploitable secret in the classic sense, but publishing these files as-is contradicts the project's "everything stays local" angle. Full detail in this report's history (not reproduced here to avoid further scattering the data) or by reading the files themselves directly.
 
-**Recommandation inchangée** : régénérer ces trois fichiers de démo (`demo_data.json`, `demo_graph_3d.html`, `demo_graph.png`) avec des données anonymisées avant toute publication publique, ou les exclure d'un futur dépôt git via `.gitignore`.
+**Recommendation unchanged**: regenerate these three demo files (`demo_data.json`, `demo_graph_3d.html`, `demo_graph.png`) with anonymized data before any public release, or exclude them from a future git repository via `.gitignore`.
 
-## Fichiers à risque non trackés dans .gitignore
+## Risky files not tracked in .gitignore
 
-Toujours pas de `.gitignore` (pas encore de dépôt git). Si `github-repo-bootstrapper` est utilisé pour initialiser le dépôt, prévoir d'y exclure au minimum :
+Still no `.gitignore` (no git repository yet). If `github-repo-bootstrapper` is used to initialize the repository, plan to exclude at minimum:
 
-| Fichier / motif | Recommandation |
+| File / pattern | Recommendation |
 |---|---|
-| `sorties/` | Dossier de sortie horodaté généré à chaque exécution (HTML/PNG/JSON/CSV réels de la machine de l'utilisateur) — ne doit jamais être commité. |
-| `.venv/` | Environnement virtuel créé par `install.sh` / `install.ps1` — local à chaque machine. |
-| `build/`, `dist/`, `*.spec` | Artefacts PyInstaller. |
-| `__pycache__/`, `*.pyc` | Cache Python (déjà présent dans ce dossier de travail). |
-| `demo_data.json`, `demo_graph_3d.html`, `demo_graph.png` | À régénérer avec des données propres avant publication (voir ci-dessus) plutôt qu'à exclure définitivement — ce sont des exemples utiles au projet. |
+| `outputs/` | Timestamped output folder generated on every run (real HTML/PNG/JSON/CSV from the user's machine) — must never be committed. |
+| `.venv/` | Virtual environment created by `install.sh` / `install.ps1` — local to each machine. |
+| `build/`, `dist/`, `*.spec` | PyInstaller artifacts. |
+| `__pycache__/`, `*.pyc` | Python cache (already present in this working folder). |
+| `demo_data.json`, `demo_graph_3d.html`, `demo_graph.png` | To be regenerated with clean data before publication (see above) rather than permanently excluded — these are useful examples for the project. |
 
-## Résumé
+## Summary
 
-Aucun secret/identifiant exploitable trouvé dans le code, les installeurs ou la documentation, y compris dans les deux nouveaux scripts `install.sh`/`install.ps1`. Le seul point d'attention reste, inchangé depuis la passe précédente, le contenu des trois fichiers de démo qui reflètent une vraie exécution sur cette machine de développement — à régénérer proprement avant toute publication publique ou avant d'utiliser `github-repo-bootstrapper`/`github-repo-promoter` pour préparer un dépôt destiné à être public.
+No exploitable secret/credential found in the code, installers, or documentation, including in the two new `install.sh`/`install.ps1` scripts. The only point of attention remains, unchanged since the previous pass, the content of the three demo files that reflect a real run on this development machine — to be regenerated cleanly before any public release or before using `github-repo-bootstrapper`/`github-repo-promoter` to prepare a repository intended to be public.

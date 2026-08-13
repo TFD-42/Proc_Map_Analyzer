@@ -1,15 +1,15 @@
-# Dépendances de analyseur_processus_allinone.py (et de l'ancien
+# Dependencies of process_analyzer_allinone.py (and of the older
 # process_graph_analyzer.py).
 #
-# psutil n'est PAS installable sur Android/Termux (le script bascule alors
-# automatiquement sur un backend /proc fait maison, voir H14 dans l'en-tête
-# de analyseur_processus_allinone.py) — sur Termux, installe uniquement les
-# trois autres lignes, ou utilise install.sh qui gère déjà cette exception
-# automatiquement.
+# psutil is NOT installable on Android/Termux (the script then automatically
+# falls back to its own custom /proc backend, see H14 in the header of
+# process_analyzer_allinone.py) — on Termux, install only the three
+# other lines, or use install.sh, which already handles this exception
+# automatically.
 #
-# Bornes basses = versions réellement testées en développement (macOS,
-# Python 3.9) et exercées par la CI (3.9/3.11/3.12). Pas de bornes hautes :
-# aucune incompatibilité connue à ce jour — à resserrer si la CI en révèle.
+# Lower bounds = versions actually tested in development (macOS,
+# Python 3.9) and exercised by CI (3.9/3.11/3.12). No upper bounds:
+# no known incompatibility so far — tighten if CI reveals one.
 networkx>=3.2.1
 matplotlib>=3.9.4
 requests>=2.32.5
