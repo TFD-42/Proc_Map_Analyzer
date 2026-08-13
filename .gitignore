@@ -39,3 +39,6 @@ demo_graph_3d.html
 
 # --- Internal working reports (promo audit, not published) ---------------
 promotion-report.md
+
+# --- Local Claude session artifacts (dead-code backups, etc.) ---------------
+.claude/

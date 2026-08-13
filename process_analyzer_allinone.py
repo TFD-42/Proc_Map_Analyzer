@@ -1987,6 +1987,9 @@ CONNECTION_NODE_COLOR = "#37474F"
 # contrast >= 3:1 on all pairs. "unknown" deliberately stays outside the
 # categorical palette (neutral gray) rather than inventing an extra hue
 # for an "Other" — see the dataviz skill rule.
+# NB: only consumed by the JS mirror inside _HTML_TEMPLATE (the "Type"
+# mode is HTML-only); kept on the Python side as the canonical, documented
+# source of truth for that palette.
 CATEGORY_COLORS = {
     "browser": "#3987E5",
     "system service": "#D95926",
@@ -1995,10 +1998,6 @@ CATEGORY_COLORS = {
     "network": "#D55181",
 }
 CATEGORY_COLOR_UNKNOWN = "#9AA1B2"
-
-
-def category_color(category: Optional[str]) -> str:
-    return CATEGORY_COLORS.get((category or "").strip().lower(), CATEGORY_COLOR_UNKNOWN)
 
 
 def render_graph_png(

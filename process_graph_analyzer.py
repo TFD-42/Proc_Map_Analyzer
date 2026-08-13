@@ -595,10 +595,6 @@ CATEGORY_COLORS = {
 CATEGORY_COLOR_UNKNOWN = "#9AA1B2"
 
 
-def category_color(category: Optional[str]) -> str:
-    return CATEGORY_COLORS.get((category or "").strip().lower(), CATEGORY_COLOR_UNKNOWN)
-
-
 def render_graph_png(
     graph: nx.DiGraph,
     processes: list[ProcessInfo],
