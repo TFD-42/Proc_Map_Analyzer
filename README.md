@@ -6,6 +6,8 @@
 [![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Linux%20%7C%20Windows%20%7C%20Android%2FTermux-lightgrey.svg)](#android--termux-support)
 [![100% local AI](https://img.shields.io/badge/AI-100%25%20local%20(Ollama)-orange.svg)](#ollama-integration)
 
+<img width="800" height="492" alt="Enregistrementdelecran2026-08-13a19 38 29-ezgif com-optimize" src="https://github.com/user-attachments/assets/d49c4008-3b46-48b3-956f-7c16f69d6ab1" />
+
 > *Interactive 3D process graph analyzer with deterministic risk scoring and local AI enrichment (Ollama) — no data leaves your machine.*
 
 Command-line tool / graphical assistant that analyzes the processes running on a machine, their related files (executable, working directory, open files) and their relationships (parent → child, shared files, network connections), computes a risk level **through deterministic rules** (not only through AI, see [Security: rules + AI](#security-rule-engine--ai-opinion)), enriches every significant process via a **local Ollama** model, then produces by default a **single deliverable: an interactive 3D graph** (a clickable "solar system", `three.js` / `3d-force-graph`) explorable by click, mouse or keyboard (`Ctrl+R` recenters, `Ctrl+`/`Ctrl-` zooms).
