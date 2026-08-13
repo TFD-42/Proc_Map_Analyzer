@@ -1,0 +1,8 @@
+# CODEOWNERS
+# Ces propriétaires sont demandés en revue automatiquement quand un chemin
+# correspondant change. Voir https://docs.github.com/articles/about-codeowners
+#
+# Mainteneur : @TFD-42. Canaux de contact : cf. CODE_OF_CONDUCT.md et
+# SECURITY.md — aucun email n'est publié pour ce projet.
+
+*       @TFD-42

@@ -1,0 +1,46 @@
+name: CI
+
+# Pas de suite de tests unitaires ni de linter configurés pour l'instant
+# (voir CONTRIBUTING.md et PLAN_ENRICHISSEMENT.md, item 14) — cette CI fait
+# donc volontairement ce qui existe réellement aujourd'hui : une
+# vérification de syntaxe (py_compile) sur les deux scripts Python, puis un
+# test d'exécution réel de bout en bout (collecte, graphe, rendu HTML) sans
+# dépendance à Ollama ni à un affichage graphique. À enrichir avec pytest /
+# ruff dès qu'ils existent réellement dans le projet, plutôt que de les
+# faire semblant ici.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: Vérification de syntaxe (py_compile)
+        run: |
+          python -m py_compile analyseur_processus_allinone.py
+          python -m py_compile process_graph_analyzer.py
+
+      - name: Test d'exécution réel (sans Ollama, sans PNG)
+        run: |
+          python analyseur_processus_allinone.py \
+            --no-enrich \
+            --max-processes 30 \
+            --html-output /tmp/ci_smoke_test.html
+          test -s /tmp/ci_smoke_test.html
