@@ -6,7 +6,7 @@
 
 ## What this means
 
-This project lives on GitHub ([TFD-42/Proc_Map_Analyzer](https://github.com/TFD-42/Proc_Map_Analyzer)). No tagged release yet, no maintenance SLA, no compatibility commitment between two versions of the script as long as no tag exists. The primary goal remains learning and personal use — contributions and reports are welcome (see `CONTRIBUTING.md`), handled on a best-effort basis.
+This project lives on GitHub ([TFD-42/Proc_Map_Analyzer](https://github.com/TFD-42/Proc_Map_Analyzer)). First tagged release: **v0.1.0** (2026-08-13, see `CHANGELOG.md`). No maintenance SLA. The primary goal remains learning and personal use — contributions and reports are welcome (see `CONTRIBUTING.md`), handled on a best-effort basis.
 
 ## Roadmap
 

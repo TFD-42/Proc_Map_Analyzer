@@ -6,7 +6,11 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
-No tagged release yet — the following reflects the current state of development, not a diff between two published versions.
+Nothing yet.
+
+## [0.1.0] - 2026-08-13
+
+First tagged release: all-in-one system process analyzer with interactive 3D graph, deterministic rule-based risk engine, optional local AI enrichment (Ollama), and multi-platform installers (macOS, Linux, Windows, Android/Termux).
 
 ### Added
 - Installers: Ollama model **matched to the machine** — mini `llama3.2:1b` (~1.3 GB) on Android/Termux, medium `llama3:latest` (~4.7 GB) on macOS/Windows/Linux. Ollama is now also installed on Android via the Termux package (`pkg install ollama`) when available, instead of being skipped. The Python script applies the same policy to its defaults (`--model`, download offered by the assistant) and can install Ollama via `pkg` under Termux.
@@ -39,6 +43,9 @@ No tagged release yet — the following reflects the current state of developmen
 - Entire project translated to English (docs, installers, CLI/log messages, HTML UI, data field names in exports — French field names like `niveau_risque` become `risk_level`; default output directory renamed from `sorties/` to `outputs/`). Files renamed accordingly: `analyseur_processus_allinone.py` → `process_analyzer_allinone.py`, `Analyser_processus.command` → `Analyze_Processes.command`, `Installer_et_lancer.command` → `Install_and_Run.command`, `PLAN_ENRICHISSEMENT.md` → `ENRICHMENT_PLAN.md`. Note: history/cache files produced by older French versions are not compatible (field names changed) — delete `outputs/` (formerly `sorties/`) artifacts to start fresh.
 - Default output reduced to just the interactive 3D graph (HTML) — PNG, JSON, CSV and the report are now optional (`--png`, `--json-export`, `--csv-export`, `--report`) rather than generated systematically.
 - `--collect-all psutil` made mandatory in the PyInstaller build command (fixes a real runtime crash on macOS, module wrongly reported missing).
+
+### Removed
+- Dead code: the unreferenced `category_color()` helper in both scripts (the "Type" coloring mode lives entirely in the embedded HTML/JS, which has its own `categoryColor` copy; the Python `CATEGORY_COLORS` palette dict stays as the documented source of truth). Snippets backed up under `.claude/dead_code_backup/` locally before removal.
 
 ### Fixed
 - Burst Ollama timeouts fixed with a warm-up call and reduced default parallelism.

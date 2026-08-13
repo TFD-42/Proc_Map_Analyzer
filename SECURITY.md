@@ -2,7 +2,11 @@
 
 ## Supported Versions
 
-This project does not yet have a tagged version (local repository, no first tag/release yet). Until a release exists, only the current working copy (default branch) is "supported" — this section will be replaced with a real version table once the first tag exists.
+| Version | Supported |
+|---|---|
+| 0.1.x (latest release) | ✅ |
+| `main` (unreleased) | ✅ best-effort |
+| anything older | ❌ |
 
 ## Scope
 
