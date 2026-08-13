@@ -10,7 +10,7 @@
 # Bornes basses = versions réellement testées en développement (macOS,
 # Python 3.9) et exercées par la CI (3.9/3.11/3.12). Pas de bornes hautes :
 # aucune incompatibilité connue à ce jour — à resserrer si la CI en révèle.
-networkx>=3.2.1
+networkx>=3.6.1
 matplotlib>=3.9.4
 requests>=2.32.5
 psutil>=7.2.2
