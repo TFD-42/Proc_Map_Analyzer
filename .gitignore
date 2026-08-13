@@ -1,0 +1,41 @@
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# --- Environnement virtuel (créé par install.sh / install.ps1) -------------
+.venv/
+venv/
+env/
+
+# --- Artefacts de build PyInstaller (voir README, section compilation) -----
+build/
+dist/
+*.spec
+
+# --- Sorties générées à l'exécution (données réelles de la machine de
+# l'utilisateur : PID, chemins, IP, éventuellement des connexions réseau —
+# ne doivent jamais être commitées) -----------------------------------------
+sorties/
+process_graph_3d*.html
+process_graph*.png
+process_data*.json
+*.csv
+rapport_*.md
+
+# --- Fichiers de démo à données réelles non anonymisées (voir
+# secret-scan-report.md) : à régénérer avec des données propres avant toute
+# publication, jamais à commiter tels quels -----------------------------
+demo_data.json
+demo_graph.png
+demo_graph_3d.html
+
+# --- Éditeurs / OS ------------------------------------------------------
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# --- Rapports de travail internes (audit promo, non publiés) ---------------
+promotion-report.md
