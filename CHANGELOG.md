@@ -6,11 +6,17 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.0] - 2026-08-15
+
 ### Added
 - "Export CSV" button in the interactive 3D graph, next to search: exports exactly the nodes currently visible under the legend filters (all categories on -> everything; only one checked -> only matching nodes).
+- Explicit "License" section in the README (MIT, matching `LICENSE`) — previously only referenced via badge.
 
 ### Changed
 - Consolidated to a single generator script: `process_graph_analyzer.py` removed, `process_analyzer_allinone.py` is now the sole source for the interactive 3D HTML (superset CLI, already what the richer generated HTML on disk actually came from). Both `.command` launchers and CI updated to target it.
+- README's AI badge retitled from "100% local AI" to "Local-first AI" — `--ollama-host` genuinely supports pointing enrichment at a remote Ollama instance, so the unqualified "100%" overstated the guarantee.
 
 ### Fixed
 - The interactive 3D graph failed to render at all: `_HTML_TEMPLATE` is a plain (non-raw) Python triple-quoted string, and `\r\n` written for the embedded JS was being interpreted by Python's own string parser as a real carriage-return/newline at generation time, planting a raw line break inside a regex literal — a JS syntax error that aborted the whole script before `ForceGraph3D` ever ran, regardless of the underlying process data.
