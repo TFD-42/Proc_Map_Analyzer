@@ -2,7 +2,7 @@
 #
 # Install_and_Run.command
 # =============================
-# All-in-one launcher (macOS, double-click) for process_graph_analyzer.py:
+# All-in-one launcher (macOS, double-click) for process_analyzer_allinone.py:
 #
 #   1. Creates an isolated Python virtual environment (.venv) next to this
 #      file — dependencies are installed THERE, never in the system
@@ -23,13 +23,13 @@
 #
 # Command-line options (optional):
 #   --model NAME     forces a specific Ollama model (skips the menu)
-#   --script PATH    uses a script other than process_graph_analyzer.py
+#   --script PATH    uses a script other than process_analyzer_allinone.py
 #   --full           enriches ALL processes (default: only the 25 most
 #                     active ones, see H4 below)
 #   -- ...           everything after this is passed as-is to the Python script
 #
 # Assumptions made (no further detail provided):
-#   H1. The target script is named "process_graph_analyzer.py" and is
+#   H1. The target script is named "process_analyzer_allinone.py" and is
 #       located next to this launcher (otherwise: --script <path>, or the
 #       GRAPH_SCRIPT environment variable).
 #   H2. The venv is created once in ".venv/" next to this
@@ -53,7 +53,7 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || { echo "Cannot access $SCRIPT_DIR"; exit 1; }
 
-PY_SCRIPT="${GRAPH_SCRIPT:-process_graph_analyzer.py}"
+PY_SCRIPT="${GRAPH_SCRIPT:-process_analyzer_allinone.py}"
 VENV_DIR="$SCRIPT_DIR/.venv"
 OUT_DIR="$SCRIPT_DIR/outputs"
 STAMP="$(date +%Y%m%d_%H%M%S)"
@@ -104,7 +104,7 @@ fi
 # --- 2. Is the target script present? ---
 if [[ ! -f "$SCRIPT_DIR/$PY_SCRIPT" ]]; then
   echo "Script not found: $SCRIPT_DIR/$PY_SCRIPT"
-  echo "Place process_graph_analyzer.py next to this launcher,"
+  echo "Place process_analyzer_allinone.py next to this launcher,"
   echo "or rerun with: ./Install_and_Run.command --script <path_to_the_script>.py"
   pause_and_exit 1
 fi

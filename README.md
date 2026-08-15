@@ -46,8 +46,7 @@ Everything runs **locally**: the only network request made by the script itself 
 | File | Role |
 |---|---|
 | `process_analyzer_allinone.py` | **Main script**, all-in-one. Contains the analysis, the rule-based risk engine, Ollama enrichment, HTML/PNG rendering, JSON/CSV/report exports, the interactive wizard, and auto-installation of the dependencies and of Ollama. This is the one to use and to compile. |
-| `process_graph_analyzer.py` | Older modular version (without the wizard or auto-installation), kept for lighter scripted/cron usage. |
-| `Analyze_Processes.command` / `Install_and_Run.command` | Old macOS bash launchers, from before the interactive wizard was integrated directly into the Python script. No longer needed if you use `process_analyzer_allinone.py`. |
+| `Analyze_Processes.command` / `Install_and_Run.command` | macOS bash launchers, from before the interactive wizard was integrated directly into the Python script — kept as convenience wrappers (dependency setup, timestamped outputs, auto-opening results) around `process_analyzer_allinone.py`. Not required if you run the script directly. |
 | `ENRICHMENT_PLAN.md` | Roadmap of the 25 identified enrichments (implemented + roadmap), organized by domain and priority. |
 | `install.sh` | Automatic installer for macOS / Linux / Android-Termux — see below. |
 | `install.ps1` | Automatic installer for Windows — see below. |

@@ -3,7 +3,7 @@ name: CI
 # No unit test suite or linter configured yet
 # (see CONTRIBUTING.md and ENRICHMENT_PLAN.md, item 14) — this CI therefore
 # deliberately does what actually exists today: a syntax check
-# (py_compile) on the two Python scripts, then a real end-to-end run
+# (py_compile) on the Python script, then a real end-to-end run
 # (collection, graph, HTML rendering) with no dependency on Ollama or a
 # graphical display. To be enriched with pytest / ruff as soon as they
 # actually exist in the project, rather than faking them here.
@@ -34,7 +34,6 @@ jobs:
       - name: Syntax check (py_compile)
         run: |
           python -m py_compile process_analyzer_allinone.py
-          python -m py_compile process_graph_analyzer.py
 
       - name: Real end-to-end run (no Ollama, no PNG)
         run: |

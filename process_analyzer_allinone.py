@@ -2309,6 +2309,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
       <button class="mode-btn" data-mode="knowledge">Knowledge</button>
     </div>
     <input id="search" type="text" placeholder="Search for an item..." />
+    <button id="exportCsv" class="mode-btn" title="Export the currently displayed nodes as CSV">Export CSV</button>
     <div id="stats"></div>
   </div>
 
@@ -2495,6 +2496,51 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
         return ids.has(s) && ids.has(t);
       });
       return { nodes, links };
+    }
+
+    function csvEscape(value) {
+      const s = value === null || value === undefined ? '' : String(value);
+      return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+
+    function nodeCsvValue(node, col) {
+      const v = node[col];
+      if (Array.isArray(v)) {
+        if (col === 'connections') {
+          return v.map(c => `${c.protocol}:${c.raddr || c.laddr || '?'}${c.status ? ' (' + c.status + ')' : ''}`).join('; ');
+        }
+        return v.join('; ');
+      }
+      return v === null || v === undefined ? '' : v;
+    }
+
+    // Exports exactly the nodes currently on screen: same filter as the 3D
+    // view (currentGraphData), so toggling legend rows before exporting
+    // scopes the CSV the same way it scopes the graph (e.g. only "Network"
+    // checked -> only network-category nodes in the file).
+    function exportCsv() {
+      const { nodes } = currentGraphData();
+      // color/val are render hints; the rest are simulation state that
+      // 3d-force-graph mutates directly onto node objects at runtime
+      // (position, velocity, its internal three.js object handle).
+      const skip = new Set(['color', 'val', 'index', 'x', 'y', 'z', 'vx', 'vy', 'vz', 'fx', 'fy', 'fz', '__threeObj']);
+      const columns = ['id', 'type', 'name'];
+      const seen = new Set(columns);
+      nodes.forEach(n => Object.keys(n).forEach(k => {
+        if (skip.has(k) || seen.has(k)) return;
+        seen.add(k); columns.push(k);
+      }));
+      const lines = [columns.map(csvEscape).join(',')];
+      nodes.forEach(n => lines.push(columns.map(c => csvEscape(nodeCsvValue(n, c))).join(',')));
+      const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `process_graph_export_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     }
 
     function fmtConnections(conns) {
@@ -2684,6 +2730,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
       });
     });
 
+    document.getElementById('exportCsv').addEventListener('click', exportCsv);
     document.getElementById('search').addEventListener('input', applyNodeColors);
 
     document.querySelectorAll('.mode-btn').forEach(btn => {
