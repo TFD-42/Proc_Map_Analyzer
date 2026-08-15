@@ -2500,7 +2500,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 
     function csvEscape(value) {
       const s = value === null || value === undefined ? '' : String(value);
-      return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      return /[",\\r\\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     }
 
     function nodeCsvValue(node, col) {
@@ -2532,7 +2532,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
       }));
       const lines = [columns.map(csvEscape).join(',')];
       nodes.forEach(n => lines.push(columns.map(c => csvEscape(nodeCsvValue(n, c))).join(',')));
-      const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob([lines.join('\\r\\n')], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
