@@ -160,9 +160,9 @@ if [[ $STATUS -ne 0 ]]; then
 fi
 
 echo "Done."
-echo "  PNG  : $PNG_OUT"
-echo "  HTML : $HTML_OUT"
-echo "  JSON : $JSON_OUT"
+[[ -f "$PNG_OUT" ]] && echo "  PNG  : $PNG_OUT"
+[[ -f "$HTML_OUT" ]] && echo "  HTML : $HTML_OUT"
+[[ -f "$JSON_OUT" ]] && echo "  JSON : $JSON_OUT"
 
 # --- 6. Automatically opening the results ---
 [[ -f "$HTML_OUT" ]] && open "$HTML_OUT" >/dev/null 2>&1
