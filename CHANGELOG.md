@@ -6,7 +6,15 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+- "Export CSV" button in the interactive 3D graph, next to search: exports exactly the nodes currently visible under the legend filters (all categories on -> everything; only one checked -> only matching nodes).
+
+### Changed
+- Consolidated to a single generator script: `process_graph_analyzer.py` removed, `process_analyzer_allinone.py` is now the sole source for the interactive 3D HTML (superset CLI, already what the richer generated HTML on disk actually came from). Both `.command` launchers and CI updated to target it.
+
+### Fixed
+- The interactive 3D graph failed to render at all: `_HTML_TEMPLATE` is a plain (non-raw) Python triple-quoted string, and `\r\n` written for the embedded JS was being interpreted by Python's own string parser as a real carriage-return/newline at generation time, planting a raw line break inside a regex literal — a JS syntax error that aborted the whole script before `ForceGraph3D` ever ran, regardless of the underlying process data.
+- `Analyze_Processes.command` and `Install_and_Run.command` always claimed a PNG was written in their completion summary, even though neither launcher passes `--png` (PNG generation is opt-in and was never actually produced) — the summary now only lists outputs that were actually generated.
 
 ## [0.1.0] - 2026-08-13
 
