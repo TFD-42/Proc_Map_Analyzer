@@ -18,6 +18,7 @@ Everything runs **locally**: the only network request made by the script itself 
 
 **Cross-platform**: Windows, macOS, Linux (compilable to an executable via PyInstaller) and **Android/Termux** (alternative collection backend based on `/proc`, see [Android / Termux support](#android--termux-support)).
 
+
 ---
 
 ## Table of contents
