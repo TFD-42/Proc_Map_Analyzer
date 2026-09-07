@@ -334,6 +334,66 @@ Findings are surfaced in the 3D graph (legend section, alert/notice/info colouri
 | 37 | `git_repo_secret_scan` | If the process's cwd is (inside) a git repository, lists TRACKED filenames that look like committed secrets (.env, private keys, credentials.json, ...) -- a very common real-world leak (a… |
 | 38 | `lsof_cross_reference` | Cross-analysis link detector via `lsof`: for a given process's exe (or, in --stream-focus-on mode, a scanned FILE's path), finds every OTHER live process that currently has that exact sam… |
 
+Plugins grouped by what they detect:
+
+### Détection & Masquerading
+[![01 masquerading](https://img.shields.io/badge/01-masquerading__system__process__name-6d4aff)]()
+[![04 deleted binary](https://img.shields.io/badge/04-deleted__binary__still__running-6d4aff)]()
+[![28 parent anomaly](https://img.shields.io/badge/28-parent__process__anomaly-6d4aff)]()
+[![32 timestomping](https://img.shields.io/badge/32-timestomping__detector-6d4aff)]()
+
+### Réseau
+[![08 cloud metadata](https://img.shields.io/badge/08-cloud__metadata__endpoint__contact-6d4aff)]()
+[![09 mining pool](https://img.shields.io/badge/09-mining__pool__port__heuristic-6d4aff)]()
+[![14 listening all interfaces](https://img.shields.io/badge/14-listening__on__all__interfaces-6d4aff)]()
+[![15 fanout](https://img.shields.io/badge/15-high__connection__fanout-6d4aff)]()
+[![30 persistent conn](https://img.shields.io/badge/30-persistent__external__connection-6d4aff)]()
+[![21 container net exposure](https://img.shields.io/badge/21-container__host__network__exposure-6d4aff)]()
+
+### Command line & payloads
+[![05 reverse shell](https://img.shields.io/badge/05-reverse__shell__cmdline__pattern-6d4aff)]()
+[![06 lolbin](https://img.shields.io/badge/06-lolbin__suspicious__usage-6d4aff)]()
+[![07 base64 blob](https://img.shields.io/badge/07-base64__blob__in__cmdline-6d4aff)]()
+[![29 powershell encoded](https://img.shields.io/badge/29-powershell__encoded__command-6d4aff)]()
+[![25 secrets cmdline](https://img.shields.io/badge/25-secrets__in__cmdline__scan-6d4aff)]()
+[![24 outdated interpreter](https://img.shields.io/badge/24-outdated__interpreter__hint-6d4aff)]()
+
+### Intégrité fichier & binaire
+[![03 world writable](https://img.shields.io/badge/03-world__writable__binary-6d4aff)]()
+[![11 codesign](https://img.shields.io/badge/11-macos__code__signature__check-6d4aff)]()
+[![12 sha256 fingerprint](https://img.shields.io/badge/12-binary__sha256__fingerprint-6d4aff)]()
+[![13 recently modified](https://img.shields.io/badge/13-recently__modified__binary-6d4aff)]()
+[![26 entropy](https://img.shields.io/badge/26-executable__entropy-6d4aff)]()
+[![27 code cave](https://img.shields.io/badge/27-code__cave__scan-6d4aff)]()
+[![32 timestomping](https://img.shields.io/badge/32-timestomping__detector-6d4aff)]()
+[![33 hash blocklist](https://img.shields.io/badge/33-hash__blocklist__lookup-6d4aff)]()
+[![34 yara runner](https://img.shields.io/badge/34-yara__runner-6d4aff)]()
+
+### Exécution & localisation
+[![02 temp/downloads](https://img.shields.io/badge/02-running__from__temp__or__downloads-6d4aff)]()
+[![35 removable media](https://img.shields.io/badge/35-removable__media__execution-6d4aff)]()
+[![20 unusual cwd](https://img.shields.io/badge/20-working__directory__outside__expected__areas-6d4aff)]()
+[![16 unix socket tmp](https://img.shields.io/badge/16-unix__socket__in__shared__tmp-6d4aff)]()
+[![10 privileged path](https://img.shields.io/badge/10-privileged__user__unprivileged__path-6d4aff)]()
+
+### Secrets & environnement
+[![36 env var secrets](https://img.shields.io/badge/36-env__var__secrets__scan-6d4aff)]()
+[![37 git repo secrets](https://img.shields.io/badge/37-git__repo__secret__scan-6d4aff)]()
+
+### Conteneurs
+[![22 docker image lookup](https://img.shields.io/badge/22-docker__container__image__lookup-6d4aff)]()
+
+### Enrichissement psutil
+[![18 process status](https://img.shields.io/badge/18-process__status__via__psutil-6d4aff)]()
+[![19 thread/fd count](https://img.shields.io/badge/19-high__thread__or__fd__count-6d4aff)]()
+
+### Métadonnées & corrélation
+[![17 pressure score](https://img.shields.io/badge/17-resource__pressure__score-6d4aff)]()
+[![31 correlation score](https://img.shields.io/badge/31-multi__plugin__correlation__score-6d4aff)]()
+
+### Infra & cross-analysis
+[![38 lsof cross ref](https://img.shields.io/badge/38-lsof__cross__reference-6d4aff)]()
+
 Each plugin is 30–120 lines of standard-library Python with its rationale in the docstring — copy one as a template for your own heuristic.
 
 ## Security: rule engine + AI opinion
