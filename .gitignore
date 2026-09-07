@@ -6,6 +6,7 @@ __pycache__/
 
 # --- Virtual environment (created by install.sh / install.ps1) -------------
 .venv/
+.venv-build/
 venv/
 env/
 
@@ -23,6 +24,20 @@ process_graph*.png
 process_data*.json
 *.csv
 rapport_*.md
+history.json
+integrity.json
+big.md
+big.csv
+
+# --- Any real-capture export, whatever the future format (defensive: the
+# tool doesn't export GIFs today, but if it ever does, block it here too) ---
+*.gif
+*.mp4
+
+# --- Curated banner/demo media is the one exception: hand-made assets for
+# the README/social preview, never generated from a real capture ------------
+!assets/
+!assets/**
 
 # --- Demo files with non-anonymized real data (see
 # secret-scan-report.md): to be regenerated with clean data before any

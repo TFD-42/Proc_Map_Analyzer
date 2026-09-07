@@ -1,0 +1,10 @@
+# One SHA256 hash per line (lowercase hex), '#' starts a comment.
+# Shipped EMPTY on purpose: no fabricated/unverified hash belongs in a
+# security tool. Populate this file yourself from a source you trust and
+# can cite, e.g.:
+#   - abuse.ch MalwareBazaar (https://bazaar.abuse.ch/) hash exports
+#   - your own incident-response findings (exe_sha256 from --check-integrity)
+#   - a vetted internal IOC feed
+#
+# plugin 33 (33_hash_blocklist_lookup.py) compares each process's exe file
+# against this list. It never downloads or generates entries itself.

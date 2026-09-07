@@ -86,38 +86,32 @@ if [[ ! -f "$SCRIPT_DIR/$PY_SCRIPT" ]]; then
   pause_and_exit 1
 fi
 
-# --- 3. Python dependencies: detection then installation if needed ---
-echo "Checking Python dependencies..."
-MISSING_STR="$(python3 - <<'PYEOF'
-import importlib.util
-mods = ("psutil", "networkx", "matplotlib", "requests")
-missing = [m for m in mods if importlib.util.find_spec(m) is None]
-print(" ".join(missing))
-PYEOF
-)"
-read -r -a MISSING_ARR <<< "$MISSING_STR"
-
-if [[ ${#MISSING_ARR[@]} -gt 0 ]]; then
-  echo "Missing dependencies: ${MISSING_ARR[*]} — installing..."
-  PIP_ERR_LOG="$(mktemp)"
-  python3 -m pip install --user "${MISSING_ARR[@]}" >"$PIP_ERR_LOG" 2>&1
-  PIP_STATUS=$?
-  if [[ $PIP_STATUS -ne 0 ]] && grep -qi "externally-managed-environment" "$PIP_ERR_LOG"; then
-    echo "Externally-managed Python environment detected, retrying with --break-system-packages..."
-    python3 -m pip install --user --break-system-packages "${MISSING_ARR[@]}" >"$PIP_ERR_LOG" 2>&1
-    PIP_STATUS=$?
-  fi
-  if [[ $PIP_STATUS -ne 0 ]]; then
-    echo "Failed to install dependencies:"
-    cat "$PIP_ERR_LOG"
-    rm -f "$PIP_ERR_LOG"
-    echo "Install them manually: python3 -m pip install --user ${MISSING_ARR[*]}"
+# --- 3. Python environment: the project's own .venv (never the system
+#        Python, never pip --user: pinned deps from requirements_frozen.txt) ---
+VENV_PY="$SCRIPT_DIR/.venv/bin/python3"
+if [[ ! -x "$VENV_PY" ]]; then
+  echo "No .venv found next to this launcher — bootstrapping it with:"
+  echo "  PMA_SKIP_OLLAMA=1 ./install.sh --install-only"
+  echo "(pinned dependencies from requirements_frozen.txt; Ollama is NOT installed by this launcher)"
+  if [[ ! -f "$SCRIPT_DIR/install.sh" ]]; then
+    echo "install.sh missing next to this launcher — cannot bootstrap."
     pause_and_exit 1
   fi
-  rm -f "$PIP_ERR_LOG"
-  echo "Dependencies installed."
-else
-  echo "All Python dependencies are already present."
+  if ! PMA_SKIP_OLLAMA=1 bash "$SCRIPT_DIR/install.sh" --install-only; then
+    echo "Bootstrap failed (see the messages above)."
+    pause_and_exit 1
+  fi
+fi
+if [[ ! -x "$VENV_PY" ]]; then
+  echo "Bootstrap finished but $VENV_PY is still missing."
+  pause_and_exit 1
+fi
+echo "Using Python: $VENV_PY"
+
+# --- 3b. Compile check (in memory: no __pycache__, nothing written) ---
+if ! "$VENV_PY" "$SCRIPT_DIR/compile_check.py"; then
+  echo "Compile check failed — the code has a syntax error (see above). Not launching."
+  pause_and_exit 1
 fi
 
 # --- 4. Ollama detection + model selection ---
@@ -145,7 +139,7 @@ mkdir -p "$OUT_DIR"
 echo ""
 echo "Running the analysis..."
 echo "------------------------------------------------------"
-python3 "$SCRIPT_DIR/$PY_SCRIPT" \
+"$VENV_PY" "$SCRIPT_DIR/$PY_SCRIPT" \
   --output "$PNG_OUT" \
   --html-output "$HTML_OUT" \
   --json-export "$JSON_OUT" \

@@ -27,9 +27,16 @@
 #>
 
 param(
+    # -InstallOnly : install + compile check, do NOT launch the analyzer.
+    [switch]$InstallOnly,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$PyArgs
 )
+
+# PMA_SKIP_OLLAMA=1 (environment variable, same name as in install.sh):
+# skip steps 1-2 entirely — no Ollama install, no server start, no model
+# download. Nothing is fetched from the internet except pip packages.
+$SkipOllama = ($env:PMA_SKIP_OLLAMA -eq "1")
 
 $ErrorActionPreference = "Continue"
 
@@ -63,9 +70,11 @@ if (-not (Test-Path $PyScript)) {
 # ---------------------------------------------------------------------------
 # 1. Ollama
 # ---------------------------------------------------------------------------
-Log "Step 1/5: checking Ollama..."
+Log "Step 1/7: checking Ollama..."
 $ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
-if ($ollamaCmd) {
+if ($SkipOllama) {
+    Log "PMA_SKIP_OLLAMA=1 - Ollama install/start/model download skipped (analysis will run without AI)."
+} elseif ($ollamaCmd) {
     Log "Ollama already installed ($($ollamaCmd.Source))."
 } else {
     $winget = Get-Command winget -ErrorAction SilentlyContinue
@@ -87,7 +96,7 @@ if ($ollamaCmd) {
 }
 
 $ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
-if ($ollamaCmd) {
+if ($ollamaCmd -and -not $SkipOllama) {
     $reachable = $false
     try {
         Invoke-WebRequest -Uri "$OllamaHost/api/tags" -UseBasicParsing -TimeoutSec 2 | Out-Null
@@ -106,16 +115,16 @@ if ($ollamaCmd) {
         }
     }
     if (-not $reachable) { Warn "The Ollama server is not responding yet - the Python script's assistant will offer to retry." }
-} else {
+} elseif (-not $SkipOllama) {
     Warn "Ollama could not be installed automatically - AI enrichment will be disabled (rule-based risk engine still active). Install it manually from https://ollama.com/download if needed."
 }
 
 # ---------------------------------------------------------------------------
 # 2. Default Ollama model
 # ---------------------------------------------------------------------------
-Log "Step 2/5: checking the Ollama model ($DefaultModel)..."
+Log "Step 2/7: checking the Ollama model ($DefaultModel)..."
 $ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
-if ($ollamaCmd) {
+if ($ollamaCmd -and -not $SkipOllama) {
     $modelBase = $DefaultModel.Split(":")[0]
     $models = & ollama list 2>$null
     if ($models -match [regex]::Escape($modelBase)) {
@@ -126,13 +135,13 @@ if ($ollamaCmd) {
         if ($LASTEXITCODE -ne 0) { Warn "Model download failed - the analysis will continue without AI (retry later: ollama pull $DefaultModel)." }
     }
 } else {
-    Log "Step skipped (Ollama unavailable)."
+    Log "Step skipped (PMA_SKIP_OLLAMA=1 or Ollama unavailable)."
 }
 
 # ---------------------------------------------------------------------------
 # 3. Python 3
 # ---------------------------------------------------------------------------
-Log "Step 3/5: checking Python 3..."
+Log "Step 3/7: checking Python 3..."
 $pythonCmd = $null
 foreach ($candidate in @("python", "python3", "py")) {
     $cmd = Get-Command $candidate -ErrorAction SilentlyContinue
@@ -176,7 +185,7 @@ Log "Python detected: $(& $pythonCmd --version 2>&1)"
 # ---------------------------------------------------------------------------
 # 4. Virtual environment + activation
 # ---------------------------------------------------------------------------
-Log "Step 4/5: creating the virtual environment (.venv)..."
+Log "Step 4/7: creating the virtual environment (.venv)..."
 if (-not (Test-Path $VenvDir)) {
     & $pythonCmd -m venv $VenvDir
     if ($LASTEXITCODE -ne 0) {
@@ -196,22 +205,52 @@ Log "Venv active: $((Get-Command python).Source)"
 # ---------------------------------------------------------------------------
 # 5. Python dependencies
 # ---------------------------------------------------------------------------
-Log "Step 5/5: installing Python dependencies..."
+Log "Step 5/7: installing Python dependencies..."
 python -m pip install --upgrade pip --quiet
 
-python -m pip install --quiet psutil networkx matplotlib requests
+# Reproducible by default: exact pinned versions from requirements_frozen.txt.
+# requirements.txt (lower bounds only) is a fallback, never the first choice.
+$ReqFrozen = Join-Path $ScriptDir "requirements_frozen.txt"
+$ReqLoose  = Join-Path $ScriptDir "requirements.txt"
+if (Test-Path $ReqFrozen) {
+    $ReqFile = $ReqFrozen
+    Log "Using pinned versions from requirements_frozen.txt (reproducible install)."
+} elseif (Test-Path $ReqLoose) {
+    $ReqFile = $ReqLoose
+    Warn "requirements_frozen.txt not found - falling back to requirements.txt (lower bounds only, versions NOT pinned)."
+} else {
+    Err "Neither requirements_frozen.txt nor requirements.txt found next to install.ps1. Aborting."
+    exit 1
+}
+Log "Running: python -m pip install -r $ReqFile"
+python -m pip install --quiet -r $ReqFile
 if ($LASTEXITCODE -ne 0) {
     Warn "Standard pip failed - retrying with --break-system-packages..."
-    python -m pip install --quiet --break-system-packages psutil networkx matplotlib requests
+    python -m pip install --quiet --break-system-packages -r $ReqFile
     if ($LASTEXITCODE -ne 0) {
-        Err "Failed to install Python dependencies."
+        Err "Failed to install Python dependencies (see pip output above)."
         exit 1
     }
 }
 Log "Dependencies installed."
 
 # ---------------------------------------------------------------------------
-# Launch
+# 6. Compile check (in memory - writes NO .pyc / __pycache__)
 # ---------------------------------------------------------------------------
-Log "Everything is ready. Launching the analyzer..."
+Log "Step 6/7: compile check of the main script and plugins\ ..."
+python (Join-Path $ScriptDir "compile_check.py")
+if ($LASTEXITCODE -ne 0) {
+    Err "Compile check failed - the code as shipped has a syntax error (see above). Not launching."
+    exit 1
+}
+
+# ---------------------------------------------------------------------------
+# 7. Launch
+# ---------------------------------------------------------------------------
+if ($InstallOnly) {
+    Log "Step 7/7 skipped (-InstallOnly). Install complete and verified."
+    Log "To run later:  .venv\Scripts\Activate.ps1 ; python process_analyzer_allinone.py   (or just rerun install.ps1)"
+    exit 0
+}
+Log "Step 7/7: everything is ready. Launching the analyzer..."
 python $PyScript @PyArgs

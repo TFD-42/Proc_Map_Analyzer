@@ -31,9 +31,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Syntax check (py_compile)
-        run: |
-          python -m py_compile process_analyzer_allinone.py
+      - name: Compile check (main script + plugins, in memory)
+        run: python compile_check.py
 
       - name: Real end-to-end run (no Ollama, no PNG)
         run: |
@@ -42,3 +41,16 @@ jobs:
             --max-processes 30 \
             --html-output /tmp/ci_smoke_test.html
           test -s /tmp/ci_smoke_test.html
+
+  install-scripts:
+    # Exercises install.sh / reinstall.sh / build.sh exactly as a user would,
+    # on an isolated copy: pinned deps, compile check, PyInstaller build and
+    # a real run of the built executable (see tests/test_install_scripts.sh).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.9"
+      - name: Install/reinstall/build harness
+        run: tests/test_install_scripts.sh --with-build
