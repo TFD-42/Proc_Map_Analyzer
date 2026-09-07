@@ -5,6 +5,8 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Linux%20%7C%20Windows%20%7C%20Android%2FTermux-lightgrey.svg)](#android--termux-support)
 [![Local-first AI](https://img.shields.io/badge/AI-local--first%20(Ollama)-orange.svg)](#ollama-integration)
+[![Free & Open Source](https://img.shields.io/badge/Free%20%26%20Open%20Source-MIT-brightgreen.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/TFD-42/Proc_Map_Analyzer?style=flat)](https://github.com/TFD-42/Proc_Map_Analyzer/stargazers)
 
 <img width="800" height="492" alt="Enregistrementdelecran2026-08-13a19 38 29-ezgif com-optimize" src="https://github.com/user-attachments/assets/d49c4008-3b46-48b3-956f-7c16f69d6ab1" />
 
@@ -52,6 +54,7 @@ Typical uses: DFIR triage of a suspicious host, threat hunting on a workstation,
 - [Known limitations](#known-limitations)
 - [Troubleshooting](#troubleshooting)
 - [Design assumptions](#design-assumptions)
+- [Contributing & security](#contributing--security)
 - [License](#license)
 
 ---
@@ -571,6 +574,10 @@ This backend was tested under real conditions (real analysis of system processes
 ## Design assumptions
 
 The script documents in its header (docstring, "Assumptions made" section) all the default values chosen in the absence of explicit specification: default Ollama model and host, graph truncation thresholds (always logged, never silent), behavior on denied permissions, calibration of the Ollama timeouts and parallelism, and the conditions triggering the interactive wizard versus command-line mode. Refer directly to the `process_analyzer_allinone.py` file for the exhaustive, up-to-date details.
+
+## Contributing & security
+
+Bug reports and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the local setup and the honest current state of validation (no automated test suite for the analyzer itself yet, only for the install/build scripts). To report a vulnerability privately, see [SECURITY.md](SECURITY.md).
 
 ## License
 
