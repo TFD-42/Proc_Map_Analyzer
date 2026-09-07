@@ -27,3 +27,12 @@ None outstanding — `.gitignore` already excludes real-data outputs (`outputs/`
 ## Summary
 
 No exploitable secret or credential found in the code, installers, CI config, or documentation. The one prior open item (non-anonymized demo files) is resolved: the files aren't present, and `.gitignore` prevents them from being committed as-is if regenerated. Repository is clean for the intended push / public-facing promotion pass.
+
+## Refresh — 2026-09-07 (pre-push pass for the plugins / file-analysis release)
+
+Scope extended to `plugins/*.py`, `plugins/yara_rules/`, `stream_focus_scan.sh`, `build.sh`, `build.ps1`, `compile_check.py`, `tests/`.
+
+- Secret patterns (AWS `AKIA…`, `ghp_…`, `sk-…`, Slack `xox…`, PEM private keys, `*_KEY/*_SECRET/*_TOKEN/*_PASSWORD = "…"` literals): **none**. The only hits are the detection patterns themselves inside plugins 25, 36 and 37, which is what those plugins are for.
+- Personal / machine identifiers (username, hostname, device model, private IPs, MACs, e-mails, absolute home paths): **none** in the tree. The one private IP that existed was an example in a comment of `stream_focus_scan.sh`, replaced by `<ollama-host>`. Public constants that look like IPs (cloud metadata endpoints in plugin 08) and the README's GitHub asset UUID were kept on purpose.
+- The plugin rule lists (expected system paths, ownership conventions, LOLBins, parent-process anomalies) were read one by one: generic, nothing tied to the machine they were written on. Hash allow/block lists and ownership rules are loaded from environment variables (`PMA_HASH_ALLOWLIST`, `PROC_ANALYZER_HASH_BLOCKLIST`, `PMA_OWNERSHIP_RULES`), never hard-coded.
+- `outputs/` (real scan data) and generated HTML/JSON/CSV were excluded from this copy entirely; they remain git-ignored.

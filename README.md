@@ -18,8 +18,19 @@ Everything runs **locally**: the only network request made by the script itself 
 
 **Cross-platform**: Windows, macOS, Linux (compilable to an executable via PyInstaller) and **Android/Termux** (alternative collection backend based on `/proc`, see [Android / Termux support](#android--termux-support)).
 
-
 ---
+
+## Features at a glance
+
+- **Live process map in 3D** — parent/child tree, shared files, network connections, click any node for PID, exe, cmdline, SHA-256, copy-to-clipboard and one-click `kill`.
+- **Deterministic risk engine** (rules, scores, incomplete-collection flags) with an optional **second opinion from a local LLM** through Ollama — nothing leaves the machine.
+- **38 plug-in security heuristics** ready to use with `--plugin "plugins/*.py"`: process masquerading, execution from temp/downloads/removable media, deleted-but-running binaries, reverse-shell and encoded-PowerShell command lines, LOLBin abuse, secrets in cmdline/env, cloud-metadata and mining-pool contacts, listening on all interfaces, container host-network exposure, code-signature and SHA-256 allow/block lists, entropy and code-cave scans, timestomping, YARA rules, parent-process anomalies, multi-finding correlation… ([full list](#plugins-38-ready-to-use-security-heuristics)).
+- **File-analysis mode** (`--stream-focus-on DIR`): walk a directory or a whole disk and run the same pipeline on every file — magic-byte type detection, extension masquerade, entropy/code-cave/YARA plugins — rendered as the same 3D graph. `stream_focus_scan.sh` wraps it for full-filesystem sweeps.
+- **High-value target scan** (`--focus-sec`): existence/permission audit of sensitive paths (SSH keys, shadow, shell history, cron, kubeconfig, docker socket…) plus a short, verifiable CVE watchlist (Log4Shell, Zerologon, PrintNightmare, EternalBlue, Follina) — metadata only, file contents are never read.
+- **Incident-response friendly**: single-process forensic view (`--pid`), `--watch` loop, `--baseline` / `--compare` against a previous run, `--check-integrity` of executables, `--sandbox` replay of a JSON export, Markdown/CSV/JSON exports.
+- **Reproducible install & build**: pinned requirements, in-memory compile check, `install.sh --install-only`, `build.sh`/`build.ps1` (PyInstaller, pinned, smoke-tested, SHA-256), test harness. Works on macOS, Linux, Windows and Android/Termux.
+
+Typical uses: DFIR triage of a suspicious host, threat hunting on a workstation, security review of a server or a build rig, teaching process forensics with a visual map — all offline.
 
 ## Table of contents
 
@@ -29,6 +40,8 @@ Everything runs **locally**: the only network request made by the script itself 
 - [Quick start](#quick-start)
 - [Wizard mode (novice)](#wizard-mode-novice)
 - [Command-line mode (advanced)](#command-line-mode-advanced)
+- [File-analysis mode and high-value target scan](#file-analysis-mode-and-high-value-target-scan)
+- [Plugins: 38 ready-to-use security heuristics](#plugins-38-ready-to-use-security-heuristics)
 - [Security: rule engine + AI opinion](#security-rule-engine--ai-opinion)
 - [Ollama integration](#ollama-integration)
 - [The interactive 3D graph](#the-interactive-3d-graph)
@@ -52,6 +65,13 @@ Everything runs **locally**: the only network request made by the script itself 
 | `ENRICHMENT_PLAN.md` | Roadmap of the 25 identified enrichments (implemented + roadmap), organized by domain and priority. |
 | `install.sh` | Automatic installer for macOS / Linux / Android-Termux — see below. |
 | `install.ps1` | Automatic installer for Windows — see below. |
+| `reinstall.sh` | Deletes `.venv/` (only that) and rebuilds it via `install.sh --install-only`. |
+| `compile_check.py` | In-memory syntax check of the main script + every plugin (never writes `__pycache__`). Called by every installer, launcher, `build.sh` and CI. |
+| `build.sh` / `build.ps1` | Reproducible PyInstaller build (dedicated `.venv-build/`, pinned deps, smoke test of the executable, `.sha256`) — see [Building an executable](#building-an-executable-pyinstaller). |
+| `requirements_frozen.txt` / `requirements.txt` / `requirements_build.txt` | Exact pinned runtime versions (what every installer uses) / lower bounds only (fallback + CI matrix) / pinned PyInstaller for the build. |
+| `tests/test_install_scripts.sh` | Verification harness for the installers and the build, on a throw-away copy (`--with-build` to include PyInstaller). |
+| `stream_focus_scan.sh` | Full-filesystem sweep launcher built on `--stream-focus-on` (interactive menu or `--root/--ollama-host/--yes` for cron), portable bash — see [File-analysis mode](#file-analysis-mode-and-high-value-target-scan). |
+| `plugins/` | **38** `--plugin` heuristics (one per file, numbered 01–38) plus `known_malicious_hashes.txt` (blocklist template) and `yara_rules/` (drop your `.yar` files there) — see [Plugins](#plugins-38-ready-to-use-security-heuristics). Example `--plugin` scripts (one heuristic each: masquerading, temp-dir execution, mining-pool ports, base64 in cmdline, etc.) — copy-pasteable starting points, load one with `--plugin plugins/03_world_writable_binary.py` or all of them at once with `--plugin "plugins/*.py"`. |
 | `demo_graph.png`, `demo_graph_3d.html`, `demo_data.json` | Sample outputs generated during development. |
 
 ## Automatic installation (recommended on a fresh machine)
@@ -66,8 +86,20 @@ On a machine that has **nothing installed** (neither Python nor Ollama), the `in
    The Python script applies the same policy for its own defaults (`--model` and the download offered by the novice wizard).
 3. **Python 3** — via Homebrew/`apt`/`dnf`/`pacman`/`zypper`/`pkg` (Termux) on macOS/Linux, via `winget` or the official installer on Windows.
 4. **Virtual environment** (`.venv`) — created then activated automatically.
-5. **Python dependencies** (`networkx`, `matplotlib`, `requests`, and `psutil` except on Android) — installed into that venv.
-6. **Launch** of `process_analyzer_allinone.py` (arguments passed to the installer are forwarded as-is to the script, e.g. `./install.sh --no-enrich`).
+5. **Python dependencies** — installed into that venv from **`requirements_frozen.txt`** (exact pinned versions: the same install on two machines, or months apart, gives the same versions). `requirements.txt` (lower bounds only) is used only if the frozen file is missing, with a warning. On Android, `psutil` is filtered out of the file (internal `/proc` backend instead). The exact `pip install -r …` command is printed before it runs.
+6. **Compile check** — `compile_check.py` compiles the main script and every `plugins/*.py` in memory; a syntax error stops here, before anything is launched. Nothing is written to disk (no `__pycache__`).
+7. **Launch** of `process_analyzer_allinone.py` (arguments passed to the installer are forwarded as-is to the script, e.g. `./install.sh --no-enrich`).
+
+Two switches make the installers usable on a machine you do not want touched beyond the venv:
+
+- `./install.sh --install-only` / `install.ps1 -InstallOnly` — steps 1–6 only, nothing launched.
+- `PMA_SKIP_OLLAMA=1` (environment variable, both installers) — skips steps 1–2 entirely: no Ollama install, no server start, no model download. Nothing is fetched from the internet except pip packages.
+
+```bash
+PMA_SKIP_OLLAMA=1 ./install.sh --install-only   # venv + pinned deps + compile check, nothing else
+./reinstall.sh                                  # wipe .venv/ and redo the above
+tests/test_install_scripts.sh                   # prove it on a throw-away copy (add --with-build for PyInstaller)
+```
 
 A failure on Ollama or the model never interrupts the installation (the analysis works without AI, using the rule-based risk engine); a failure on Python, however, is fatal since nothing can run without it.
 
@@ -161,6 +193,30 @@ python3 process_analyzer_allinone.py --help
 | `--sandbox PATH` | — | Reads processes from a JSON file (`--json-export` format) instead of the real system — risk-free testing of rules/config/rendering |
 | `--preload-model` | — | Downloads/prepares the Ollama model then exits (offline preparation) |
 
+## File-analysis mode and high-value target scan
+
+Two modes added after v0.2.0 reuse the whole pipeline (rule engine, `--plugin`, AI opinion, 3D graph) on something other than live PIDs:
+
+| Option | Default | Effect |
+|---|---|---|
+| `--stream-focus-on DIR_OR_FILE` | — | **File-analysis mode.** Walks every file under the directory (or analyzes one file), whatever its displayed extension, and turns each one into a pseudo-process (`exe` = file path) so the same rules and plugins run on it. Built-in magic-byte detection flags files whose real content disagrees with their extension (`.txt` that is a Mach-O, `.jpg` that is a script…). Pseudo-filesystems (`/proc`, `/sys`, `/dev`, `/run`, Spotlight/Time Machine volumes) are skipped. |
+| `--stream-focus-max-files N` | unlimited | Safety cap on the walk for a broad root such as `/`. |
+| `--focus-sec` | — | **High-value target scan.** Checks a built-in list of sensitive paths (SSH keys and `authorized_keys`, `shadow`/`passwd`, shell and database history, cron, kubeconfig, Docker socket and registry credentials…) for existence and risky permissions — metadata only, contents are never read — and tags running or scanned processes against a short CVE watchlist that you can verify independently (Log4Shell, Zerologon, PrintNightmare, EternalBlue, Follina). Works with or without `--stream-focus-on`. |
+| `--focus-sec-report PATH` | `outputs/focus_sec_scan_<timestamp>.json` | Where the standalone `--focus-sec` result list is written. |
+
+```bash
+# Sweep a user folder with the file-oriented plugins, no AI, capped at 50k files
+python3 process_analyzer_allinone.py --stream-focus-on /Users --stream-focus-max-files 50000   --plugin "plugins/26_executable_entropy.py" --plugin "plugins/27_code_cave_scan.py"   --plugin "plugins/32_timestomping_detector.py" --plugin "plugins/34_yara_runner.py" --no-enrich
+
+# Same thing, whole disk, interactive confirmation, Ollama on another machine
+./stream_focus_scan.sh --root / --ollama-host http://<ollama-host>:11434 --model llama3.1
+
+# Sensitive-path audit + CVE watchlist on the live process list
+python3 process_analyzer_allinone.py --focus-sec --focus-sec-report outputs/focus_sec.json --no-enrich
+```
+
+`stream_focus_scan.sh` refuses nothing silently: scanning `/` asks for confirmation (skip with `--yes` for cron), the file cap defaults to 200 000 (`--max-files 0` for unlimited), and the Ollama host is a plain flag — nothing GPU-specific lives in the launcher.
+
 ### Advanced analysis and enrichment
 
 | Option | Default | Description |
@@ -174,7 +230,7 @@ python3 process_analyzer_allinone.py --help
 | `--cache-file PATH` | `outputs/enrich_cache.sqlite3` | Cache file |
 | `--cache-ttl-days N` | `7` | Validity period of cache entries |
 | `--retry-failed N` | `0` | Retries transiently failed enrichments up to N times (exponential backoff) |
-| `--plugin PATH` | — | Python plugin `enrich(process_info: dict) -> dict` applied to each process |
+| `--plugin PATH [PATH ...]` | — | One or more Python plugins, each exposing `enrich(process_info: dict) -> dict`, applied to each process. Accepts several paths and/or a glob pattern (e.g. `--plugin "plugins/*.py"` — quote it so the script expands it, not the shell); every plugin that returns data for a process gets its own entry rather than overwriting the others |
 | `--csv-edges PATH` | — | Exports the graph **relationships** as CSV (importable into Gephi/Neo4j) |
 
 Example `--config` file (YAML):
@@ -225,6 +281,60 @@ python3 process_analyzer_allinone.py \
   --report "/var/log/process_graph/report_$(date +%Y%m%d_%H%M).md" \
   --csv-export "/var/log/process_graph/data_$(date +%Y%m%d_%H%M).csv"
 ```
+
+## Plugins: 38 ready-to-use security heuristics
+
+Every file in `plugins/` is an independent `--plugin` module (`enrich(process_info) -> dict`, see [Advanced analysis](#advanced-analysis-and-enrichment)); load one, several, or all of them:
+
+```bash
+python3 process_analyzer_allinone.py --plugin "plugins/*.py"          # everything
+python3 process_analyzer_allinone.py --plugin plugins/05_reverse_shell_cmdline_pattern.py --plugin plugins/29_powershell_encoded_command.py
+```
+
+Findings are surfaced in the 3D graph (legend section, alert/notice/info colouring, detail panel) and in the JSON/CSV exports. Plugin 31 correlates the others: several independent weak signals on one process escalate together. Lists that must be yours are loaded from files or environment variables, never hard-coded: `PMA_HASH_ALLOWLIST` (known-good SHA-256, plugin 12), `PROC_ANALYZER_HASH_BLOCKLIST` (plugin 33, template in `plugins/known_malicious_hashes.txt`), `PMA_OWNERSHIP_RULES` (plugin 23), `plugins/yara_rules/*.yar` (plugin 34, ships with the EICAR test rule only).
+
+| # | Plugin | What it flags |
+|---|---|---|
+| 01 | `masquerading_system_process_name` | Flags a process whose NAME matches a well-known OS process but whose executable path is outside where that OS actually keeps it -- the classic "masquerading" trick (rename a payload to lo… |
+| 02 | `running_from_temp_or_downloads` | Flags a process whose executable lives under a temp/downloads-style directory -- a common landing zone for freshly downloaded or dropped binaries. |
+| 03 | `world_writable_binary` | Flags an executable that ANY local user can overwrite (group- or other-writable). |
+| 04 | `deleted_binary_still_running` | Flags a process whose executable path no longer exists on disk while the process is still running -- normal after a package upgrade or a self-deleting installer, and also a known techniqu… |
+| 05 | `reverse_shell_cmdline_pattern` | Flags a cmdline that matches one of the well-documented reverse-shell one-liners (bash /dev/tcp, nc -e, python socket+dup2, perl/php/socat variants, PowerShell hidden-window download-and-… |
+| 06 | `lolbin_suspicious_usage` | Flags a "living-off-the-land binary" (a legitimate, pre-installed OS tool) invoked with flags from its well-documented abuse patterns -- downloading and running remote content, most often. |
+| 07 | `base64_blob_in_cmdline` | Flags a suspiciously long base64-looking substring in the cmdline -- a common shape for an encoded payload handed to an interpreter (`python -c <b64>`, `powershell -enc <b64>`, etc). |
+| 08 | `cloud_metadata_endpoint_contact` | Flags a connection to a cloud instance-metadata service (169.254.169.254, used by AWS/GCP/Azure/OpenStack/DigitalOcean, and Alibaba Cloud's 100.100.100.200). |
+| 09 | `mining_pool_port_heuristic` | Flags a process combining sustained high CPU with an outbound connection on a port conventionally used by cryptocurrency mining pools (Stratum protocol). |
+| 10 | `privileged_user_unprivileged_path` | Flags a process running as root/SYSTEM/admin whose executable sits under a directory normal users can write to (their home folder, Desktop, Downloads, /tmp) instead of a system location. |
+| 11 | `macos_code_signature_check` | macOS only: runs `codesign --verify` against the executable to check whether its code signature is still intact. |
+| 12 | `binary_sha256_fingerprint` | Computes the SHA256 of the executable and checks it against an optional local allow-list (one "hash name" line per entry, same convention as sha256sum -- see ALLOWLIST_PATH below). |
+| 13 | `recently_modified_binary` | Flags an executable modified within the last N hours (default 24, override with PMA_RECENT_BINARY_HOURS). |
+| 14 | `listening_on_all_interfaces` | Flags a process listening on 0.0.0.0 (or :: for IPv6) -- reachable from every network interface, not just localhost. |
+| 15 | `high_connection_fanout` | Flags a process talking to an unusually large number of distinct remote endpoints at once -- the shape of a scanner, a proxy, a P2P client, or beaconing malware alike. |
+| 16 | `unix_socket_in_shared_tmp` | Flags a UNIX-domain socket living under a world-readable shared directory (/tmp, /var/tmp, /dev/shm) rather than a private runtime directory. |
+| 17 | `resource_pressure_score` | Replaces a crude "cpu > 80 => alert" with a graded 0-100 resource pressure score blending CPU and memory, plus a label -- so a process at 82% CPU / 1% mem and one at 45% CPU / 60% mem bot… |
+| 18 | `process_status_via_psutil` | Looks up the live process STATUS (running / sleeping / zombie / stopped / disk-sleep...) via psutil, using only the pid from process_info -- an example of a plugin reaching beyond the fie… |
+| 19 | `high_thread_or_fd_count` | Looks up live thread and (POSIX) file-descriptor counts via psutil -- another "reach beyond the given dict" example. |
+| 20 | `working_directory_outside_expected_areas` | Flags a process whose working directory sits on removable/external media or another unusual mount point (a USB drive, a mounted disk image, an unexpected network share) rather than the sy… |
+| 21 | `container_host_network_exposure` | Flags a containerized process that's also listening on 0.0.0.0 -- worth knowing because it usually means the container runs with `--net=host` (no network namespace isolation at all) or ha… |
+| 22 | `docker_container_image_lookup` | If the process is containerized and the `docker` CLI is available, enriches with the image name/tag via `docker inspect` -- turning a bare container id into something readable. |
+| 23 | `ownership_tagger_by_path_convention` | Turns a raw process list into an ownership-tagged inventory by matching `cwd`/`exe` against your own path conventions (e.g. |
+| 24 | `outdated_interpreter_hint` | Flags a process whose cmdline invokes an end-of-life interpreter -- python2, old Ruby, old PHP. |
+| 25 | `secrets_in_cmdline_scan` | Flags cmdlines that look like they carry a secret as a plain argument -- passwords, API keys, tokens passed via --flag=value, or a connection string with embedded credentials. |
+| 26 | `executable_entropy` | Computes the Shannon entropy of the executable file on disk (0-8 bits/byte) -- a standard static-analysis proxy for "is this compressed or encrypted", since compressed/encrypted/packed da… |
+| 27 | `code_cave_scan` | Scans the executable on disk for long runs of a single repeated byte (0x00 most commonly, also 0x90/NOP and 0xCC/INT3) -- the file-level shape of a "code cave": empty space inside a legit… |
+| 28 | `parent_process_anomaly` | Flags a shell/interpreter spawned by a process that normally never spawns one: an office document viewer, a PDF reader, or a browser. |
+| 29 | `powershell_encoded_command` | Flags PowerShell invoked with an encoded/obfuscated command -- the single most common shape of a PowerShell-based payload (Empire, Cobalt Strike, PowerSploit, and countless copy-pasted on… |
+| 30 | `persistent_external_connection` | Flags a process that (a) has an external (non-loopback) network connection RIGHT NOW and (b) has already appeared, under the same exe+name, in several of the tool's own past runs (--histo… |
+| 31 | `multi_plugin_correlation_score` | Meta-plugin: escalates when MULTIPLE independent --plugin findings co-occur on the same process. |
+| 32 | `timestomping_detector` | Flags a file-modified-before-it-was-created inconsistency on the executable -- the file-level signature of "timestomping" (an attacker resetting mtime to an old date to blend a dropped bi… |
+| 33 | `hash_blocklist_lookup` | Computes the SHA256 of the process's executable (same read-and-hash logic as the main script's --check-integrity / exe_sha256, but usable without enabling that whole feature) and looks it… |
+| 34 | `yara_runner` | Runs every *.yar rule file in plugins/yara_rules/ against the process's executable on disk -- turns this into an actual static-signature scanner instead of only heuristics. |
+| 35 | `removable_media_execution` | Flags a process running FROM a removable/external media mount point -- the classic BadUSB/autorun/"someone plugged in a drive" vector, and a pattern the existing path-based plugins (01, 0… |
+| 36 | `env_var_secrets_scan` | Flags secret-shaped environment variable NAMES on a live process (AWS_SECRET_ACCESS_KEY, LD_PRELOAD, DATABASE_URL with embedded creds, etc.) -- the environment-variable counterpart to plu… |
+| 37 | `git_repo_secret_scan` | If the process's cwd is (inside) a git repository, lists TRACKED filenames that look like committed secrets (.env, private keys, credentials.json, ...) -- a very common real-world leak (a… |
+| 38 | `lsof_cross_reference` | Cross-analysis link detector via `lsof`: for a given process's exe (or, in --stream-focus-on mode, a scanned FILE's path), finds every OTHER live process that currently has that exact sam… |
+
+Each plugin is 30–120 lines of standard-library Python with its rationale in the docstring — copy one as a template for your own heuristic.
 
 ## Security: rule engine + AI opinion
 
@@ -305,8 +415,22 @@ Links are colored by relationship type: parent → child, shared file, and by ne
 
 ## Building an executable (PyInstaller)
 
+Reproducible build, one command:
+
 ```bash
-pip install pyinstaller psutil networkx matplotlib requests
+./build.sh            # macOS / Linux  ->  dist/ProcessAnalyzer  (+ .sha256)
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File build.ps1   # Windows -> dist\ProcessAnalyzer.exe (+ .sha256)
+```
+
+What the script does, in order (every step is printed): dedicated `.venv-build/` → `pip install -r requirements_frozen.txt -r requirements_build.txt` (runtime deps and PyInstaller both pinned) → `compile_check.py` → PyInstaller with the flags below → **smoke test** (the freshly built executable runs a real `--no-enrich` analysis on 5 processes and must produce a non-empty HTML; `--skip-smoke` / `-SkipSmoke` to bypass on a headless CI) → SHA-256 written next to the artifact. Refuses to run on Android/Termux (PyInstaller does not target it). `build.ps1` mirrors `build.sh` but was written without a Windows machine: syntax-reviewed, not executed — report the printed failing step if it breaks.
+
+The equivalent manual commands (what `build.sh` runs):
+
+```bash
+pip install -r requirements_frozen.txt -r requirements_build.txt
 pyinstaller --onefile --console --name ProcessAnalyzer \
   --collect-all psutil \
   --collect-submodules matplotlib \
@@ -315,7 +439,7 @@ pyinstaller --onefile --console --name ProcessAnalyzer \
 
 The executable is produced in `dist/`. Important points:
 
-- **First install all the dependencies (`pip install psutil networkx matplotlib requests`) in the SAME environment/venv as the one where you run `pyinstaller`.** PyInstaller only bundles what it sees installed locally at build time — it cannot guess what the script would install on its own during a raw `.py` launch.
+- **First install all the dependencies (`pip install -r requirements_frozen.txt`) in the SAME environment/venv as the one where you run `pyinstaller`** (`build.sh` does exactly that in `.venv-build/`). PyInstaller only bundles what it sees installed locally at build time — it cannot guess what the script would install on its own during a raw `.py` launch.
 - **`--collect-all psutil` is mandatory**, not just recommended: psutil ships an OS-specific compiled extension (`_psutil_osx` / `_psutil_linux` / `_psutil_windows`) that PyInstaller does not always detect on its own. Without this flag, the executable compiles without error but crashes immediately at runtime with `ERROR: missing module(s) in the executable: psutil` (bug encountered and fixed — this flag is what solves it).
 - **`--console` is mandatory**: the interactive wizard and the pause before the window closes need it.
 - PyInstaller **does not cross-compile**: the command must be run on the same OS as the one targeted (building on macOS produces a macOS binary, etc.).

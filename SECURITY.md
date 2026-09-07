@@ -4,7 +4,7 @@
 
 | Version | Supported |
 |---|---|
-| 0.1.x (latest release) | ✅ |
+| 0.2.x (latest release) | ✅ |
 | `main` (unreleased) | ✅ best-effort |
 | anything older | ❌ |
 

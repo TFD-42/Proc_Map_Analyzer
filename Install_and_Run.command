@@ -9,8 +9,11 @@
 #      site-packages (this completely avoids the class of bugs
 #      "externally-managed-environment" / corrupted dist-info encountered
 #      with global --user installs).
-#   2. Installs the Python dependencies into this venv (once,
-#      reused on subsequent launches).
+#   2. Installs the Python dependencies into this venv from
+#      requirements_frozen.txt (exact pinned versions -> reproducible),
+#      once; re-installs only if that file changes (sha256 stamp in .venv).
+#      Then compile-checks the code in memory (compile_check.py) before
+#      running it -- nothing written to disk.
 #   3. Detects locally installed Ollama models (`ollama list`) and
 #      interactively asks which one to use, rather than requiring a
 #      hand-typed name (the source of a previous bug: a typo in the
@@ -133,27 +136,36 @@ if [[ ! -x "$VENV_PIP" ]]; then
   pause_and_exit 1
 fi
 
-# --- 4. Python dependencies, installed INSIDE the venv ---
-echo "Checking dependencies..."
-MISSING_STR="$("$VENV_PY" - <<'PYEOF'
-import importlib.util
-mods = ("psutil", "networkx", "matplotlib", "requests")
-missing = [m for m in mods if importlib.util.find_spec(m) is None]
-print(" ".join(missing))
-PYEOF
-)"
-read -r -a MISSING_ARR <<< "$MISSING_STR"
-
-if [[ ${#MISSING_ARR[@]} -gt 0 ]]; then
-  echo "Installing missing dependencies: ${MISSING_ARR[*]}..."
+# --- 4. Python dependencies, installed INSIDE the venv, pinned ---
+REQ_FILE="$SCRIPT_DIR/requirements_frozen.txt"
+if [[ ! -f "$REQ_FILE" ]]; then
+  echo "requirements_frozen.txt missing — falling back to requirements.txt (versions NOT pinned)."
+  REQ_FILE="$SCRIPT_DIR/requirements.txt"
+fi
+if [[ ! -f "$REQ_FILE" ]]; then
+  echo "No requirements file found next to this launcher."
+  pause_and_exit 1
+fi
+STAMP_FILE="$VENV_DIR/.requirements.sha256"
+REQ_HASH="$(shasum -a 256 "$REQ_FILE" | awk '{print $1}')"
+if [[ -f "$STAMP_FILE" && "$(cat "$STAMP_FILE")" == "$REQ_HASH" ]]; then
+  echo "Dependencies already installed from $(basename "$REQ_FILE") (unchanged since last install)."
+else
+  echo "Installing dependencies from $(basename "$REQ_FILE") into the venv:"
+  echo "  $VENV_PIP install -r $REQ_FILE"
   "$VENV_PIP" install --upgrade pip >/dev/null 2>&1
-  if ! "$VENV_PIP" install "${MISSING_ARR[@]}"; then
-    echo "Failed to install dependencies in the venv."
+  if ! "$VENV_PIP" install -r "$REQ_FILE"; then
+    echo "Failed to install dependencies in the venv (see pip output above)."
     pause_and_exit 1
   fi
+  printf '%s\n' "$REQ_HASH" > "$STAMP_FILE"
   echo "Dependencies installed."
-else
-  echo "All dependencies are already present in the venv."
+fi
+
+# --- 4b. Compile check (in memory: no __pycache__, nothing written) ---
+if ! "$VENV_PY" "$SCRIPT_DIR/compile_check.py"; then
+  echo "Compile check failed — the code has a syntax error (see above). Not launching."
+  pause_and_exit 1
 fi
 
 # --- 5. Ollama model selection: detection + interactive menu ---

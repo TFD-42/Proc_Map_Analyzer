@@ -15,14 +15,23 @@
 #      (Windows, handled by install.ps1, also gets the medium model)
 #   3. Python 3
 #   4. Creation + activation of a virtual environment (.venv)
-#   5. Python dependencies (pip)
-#   6. Launching process_analyzer_allinone.py
+#   5. Python dependencies (pip) — from requirements_frozen.txt (exact
+#      pinned versions, reproducible install) when present, otherwise from
+#      requirements.txt (lower bounds only). psutil is skipped on Android.
+#   6. Compile check: every .py (main script + plugins/) is compiled in
+#      memory to catch a syntax error BEFORE launch. Nothing is written to
+#      disk (no __pycache__), so the tree stays exactly as shipped.
+#   7. Launching process_analyzer_allinone.py
 #
 # Usage:
 #   chmod +x install.sh
-#   ./install.sh
+#   ./install.sh                  # install everything, then launch
+#   ./install.sh --install-only   # install + compile check, do NOT launch
+#   PMA_SKIP_OLLAMA=1 ./install.sh   # skip steps 1-2 (no AI, no download,
+#                                    # nothing fetched from the internet
+#                                    # except pip packages)
 #
-# Arguments passed to this script are forwarded as-is to the Python script
+# Every other argument is forwarded as-is to the Python script
 # (e.g. ./install.sh --no-enrich --max-processes 50).
 #
 # No step fails silently: a failure installing Ollama or the model does not
@@ -34,7 +43,22 @@ set -uo pipefail  # No -e on purpose: each step handles its own errors
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PY_SCRIPT="$SCRIPT_DIR/process_analyzer_allinone.py"
 VENV_DIR="$SCRIPT_DIR/.venv"
+REQ_FROZEN="$SCRIPT_DIR/requirements_frozen.txt"
+REQ_LOOSE="$SCRIPT_DIR/requirements.txt"
 OLLAMA_HOST="http://localhost:11434"
+# Portable temp dir: Termux has no /tmp, it exposes $TMPDIR ($PREFIX/tmp).
+TMP_DIR="${TMPDIR:-/tmp}"
+
+# --install-only is consumed here; everything else is forwarded to Python.
+INSTALL_ONLY=0
+FORWARD_ARGS=()
+for arg in "$@"; do
+    if [ "$arg" = "--install-only" ]; then
+        INSTALL_ONLY=1
+    else
+        FORWARD_ARGS+=("$arg")
+    fi
+done
 # Models by machine size — the actual choice is made after platform
 # detection, see below.
 MODEL_MINI="llama3.2:1b"      # ~1.3 GB — Android/Termux (limited RAM/storage)
@@ -84,8 +108,10 @@ fi
 # ---------------------------------------------------------------------------
 # 1. Ollama
 # ---------------------------------------------------------------------------
-log "Step 1/5: checking Ollama..."
-if command -v ollama >/dev/null 2>&1; then
+log "Step 1/7: checking Ollama..."
+if [ "${PMA_SKIP_OLLAMA:-0}" = "1" ]; then
+    log "PMA_SKIP_OLLAMA=1 — Ollama install/start/model download skipped (analysis will run without AI)."
+elif command -v ollama >/dev/null 2>&1; then
     log "Ollama already installed ($(command -v ollama))."
 else
     case "$PLATFORM" in
@@ -95,11 +121,13 @@ else
                 brew install ollama || warn "Homebrew installation of Ollama failed — the analysis will continue without AI."
             else
                 warn "Homebrew not found — installing Ollama via the official script..."
+                log "Running: curl -fsSL https://ollama.com/install.sh | sh   (remote script executed as-is; set PMA_SKIP_OLLAMA=1 to avoid it)"
                 curl -fsSL https://ollama.com/install.sh | sh || warn "Automatic Ollama installation failed — the analysis will continue without AI."
             fi
             ;;
         linux)
             log "Installing Ollama via the official script (may prompt for the sudo password)..."
+            log "Running: curl -fsSL https://ollama.com/install.sh | sh   (remote script executed as-is; set PMA_SKIP_OLLAMA=1 to avoid it)"
             curl -fsSL https://ollama.com/install.sh | sh || warn "Automatic Ollama installation failed — the analysis will continue without AI."
             ;;
         android)
@@ -121,10 +149,10 @@ fi
 
 # Start the server regardless of OS as soon as the ollama binary exists
 # (including on Termux, where the package may have just been installed).
-if command -v ollama >/dev/null 2>&1; then
+if [ "${PMA_SKIP_OLLAMA:-0}" != "1" ] && command -v ollama >/dev/null 2>&1; then
     if ! curl -fsS "$OLLAMA_HOST/api/tags" >/dev/null 2>&1; then
-        log "Starting the Ollama server in the background..."
-        nohup ollama serve >/tmp/ollama_serve.log 2>&1 &
+        log "Starting the Ollama server in the background (log: $TMP_DIR/ollama_serve.log)..."
+        nohup ollama serve >"$TMP_DIR/ollama_serve.log" 2>&1 &
         for _ in $(seq 1 15); do
             curl -fsS "$OLLAMA_HOST/api/tags" >/dev/null 2>&1 && break
             sleep 2
@@ -135,8 +163,8 @@ fi
 # ---------------------------------------------------------------------------
 # 2. Default Ollama model
 # ---------------------------------------------------------------------------
-log "Step 2/5: checking the Ollama model ($DEFAULT_MODEL)..."
-if command -v ollama >/dev/null 2>&1 && curl -fsS "$OLLAMA_HOST/api/tags" >/dev/null 2>&1; then
+log "Step 2/7: checking the Ollama model ($DEFAULT_MODEL)..."
+if [ "${PMA_SKIP_OLLAMA:-0}" != "1" ] && command -v ollama >/dev/null 2>&1 && curl -fsS "$OLLAMA_HOST/api/tags" >/dev/null 2>&1; then
     if ollama list 2>/dev/null | grep -q "^${DEFAULT_MODEL%%:*}"; then
         log "Model already present."
     else
@@ -144,13 +172,13 @@ if command -v ollama >/dev/null 2>&1 && curl -fsS "$OLLAMA_HOST/api/tags" >/dev/
         ollama pull "$DEFAULT_MODEL" || warn "Model download failed — the analysis will continue without AI (retry later: ollama pull $DEFAULT_MODEL)."
     fi
 else
-    log "Step skipped (Ollama unavailable on this platform, or server unreachable)."
+    log "Step skipped (PMA_SKIP_OLLAMA=1, Ollama unavailable on this platform, or server unreachable)."
 fi
 
 # ---------------------------------------------------------------------------
 # 3. Python 3
 # ---------------------------------------------------------------------------
-log "Step 3/5: checking Python 3..."
+log "Step 3/7: checking Python 3..."
 PYTHON_BIN=""
 for candidate in python3 python; do
     if command -v "$candidate" >/dev/null 2>&1; then
@@ -219,7 +247,7 @@ log "Python detected: $("$PYTHON_BIN" --version 2>&1)"
 # ---------------------------------------------------------------------------
 # 4. Virtual environment + activation
 # ---------------------------------------------------------------------------
-log "Step 4/5: creating the virtual environment (.venv)..."
+log "Step 4/7: creating the virtual environment (.venv)..."
 if [ ! -d "$VENV_DIR" ]; then
     "$PYTHON_BIN" -m venv "$VENV_DIR" || {
         err "Failed to create the venv (is the 'venv' module installed? on Debian/Ubuntu: sudo apt-get install python3-venv)."
@@ -239,33 +267,66 @@ log "Venv active: $(command -v python)"
 # ---------------------------------------------------------------------------
 # 5. Python dependencies
 # ---------------------------------------------------------------------------
-log "Step 5/5: installing Python dependencies..."
+log "Step 5/7: installing Python dependencies..."
 python -m pip install --upgrade pip --quiet
 
-DEPS="networkx matplotlib requests"
-if [ "$PLATFORM" != "android" ]; then
-    # psutil is not installable on Android — process_analyzer_allinone.py
-    # automatically falls back to its own /proc backend in that case.
-    DEPS="psutil $DEPS"
+# Reproducible by default: exact pinned versions. requirements.txt (lower
+# bounds only) is a fallback, never the first choice, because two installs
+# made a month apart would otherwise resolve to different versions.
+if [ -f "$REQ_FROZEN" ]; then
+    REQ_FILE="$REQ_FROZEN"
+    log "Using pinned versions from requirements_frozen.txt (reproducible install)."
+elif [ -f "$REQ_LOOSE" ]; then
+    REQ_FILE="$REQ_LOOSE"
+    warn "requirements_frozen.txt not found — falling back to requirements.txt (lower bounds only, versions NOT pinned)."
+else
+    err "Neither requirements_frozen.txt nor requirements.txt found next to install.sh. Aborting."
+    exit 1
 fi
 
-# shellcheck disable=SC2086
-if ! python -m pip install --quiet $DEPS; then
+REQ_ANDROID=""
+if [ "$PLATFORM" = "android" ]; then
+    # psutil has no Android wheel and fails to build from source —
+    # process_analyzer_allinone.py falls back to its own /proc backend.
+    # Filter it out of the requirements file instead of hand-listing deps.
+    REQ_ANDROID="$TMP_DIR/pma_requirements_android.$$.txt"
+    grep -viE '^[[:space:]]*psutil([=<>!~ ]|$)' "$REQ_FILE" > "$REQ_ANDROID"
+    REQ_FILE="$REQ_ANDROID"
+    log "Android/Termux: psutil removed from the requirements (internal /proc backend will be used)."
+fi
+log "Running: python -m pip install -r $REQ_FILE"
+
+if ! python -m pip install --quiet -r "$REQ_FILE"; then
     warn "Standard pip failed — retrying with --break-system-packages (externally-managed Python environments, PEP 668)..."
-    # shellcheck disable=SC2086
-    if ! python -m pip install --quiet --break-system-packages $DEPS; then
+    if ! python -m pip install --quiet --break-system-packages -r "$REQ_FILE"; then
         if [ "$PLATFORM" = "android" ]; then
             err "Failed to install dependencies. On Termux, try the precompiled package if matplotlib fails: pkg install matplotlib"
         else
-            err "Failed to install Python dependencies."
+            err "Failed to install Python dependencies (see pip output above)."
         fi
+        [ -n "$REQ_ANDROID" ] && rm -f "$REQ_ANDROID"
         exit 1
     fi
 fi
+[ -n "$REQ_ANDROID" ] && rm -f "$REQ_ANDROID"
 log "Dependencies installed."
 
 # ---------------------------------------------------------------------------
-# Launch
+# 6. Compile check (in memory — writes NO .pyc / __pycache__)
 # ---------------------------------------------------------------------------
-log "Everything is ready. Launching the analyzer..."
-exec python "$PY_SCRIPT" "$@"
+log "Step 6/7: compile check of the main script and plugins/ ..."
+if ! python "$SCRIPT_DIR/compile_check.py"; then
+    err "Compile check failed — the code as shipped has a syntax error (see above). Not launching."
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 7. Launch
+# ---------------------------------------------------------------------------
+if [ "$INSTALL_ONLY" = "1" ]; then
+    log "Step 7/7 skipped (--install-only). Install complete and verified."
+    log "To run later:  source \"$VENV_DIR/bin/activate\" && python \"$PY_SCRIPT\"   (or just ./install.sh again)"
+    exit 0
+fi
+log "Step 7/7: everything is ready. Launching the analyzer..."
+exec python "$PY_SCRIPT" "${FORWARD_ARGS[@]}"

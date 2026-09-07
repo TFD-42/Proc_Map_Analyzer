@@ -194,9 +194,17 @@ Design hypotheses (no details were provided by the user on these points):
       SHA256(name+exe+cmdline), TTL 7 days (--cache-ttl-days). Failures
       are never cached; results served from the cache are marked
       from_cache to remain distinguishable.
-  H27. --plugin: USER Python module loaded explicitly, exposing
-      enrich(process_info: dict) -> dict, result merged under
-      enrichment["plugin"]. Plugin errors are logged, never fatal.
+  H27. --plugin: one or more USER Python modules loaded explicitly
+      (space-separated paths, and/or a glob pattern like
+      plugins/*.py -- expanded by the script itself if the shell
+      didn't already do it), each exposing enrich(process_info: dict)
+      -> dict. Every plugin that returns a non-empty dict for a given
+      process appends an entry (tagged with its own filename) to
+      enrichment["plugin"], now a LIST rather than a single dict, so
+      multiple plugins firing on the same process don't overwrite one
+      another. Severity across all of them escalates the same way
+      rules-vs-AI risk does: alert > notice > info, never silently
+      dropped to the lower one. Plugin errors are logged, never fatal.
   H28. --csv-edges: export of the graph EDGES (source, target, kind,
       labels, risk levels of both endpoints) for Gephi/Neo4j.
   H29. Automatic run history (outputs/history.json, 50 lightweight
@@ -1179,6 +1187,16 @@ def compute_rule_based_risk(p: ProcessInfo, baseline: Optional[dict] = None) -> 
     # a signal, at the risk of marking dozens of perfectly legitimate
     # kernel threads as "high" on any Linux machine (massive noise,
     # contrary to this engine's purpose).
+    # H34: --stream-focus-on pseudo-processes use synthetic NEGATIVE pids
+    # (see collect_files_as_processes) precisely so they can be told apart
+    # here — real psutil pids are never negative. The two rules below say
+    # "a process was LAUNCHED from this path", which is meaningless for an
+    # ordinary file that isn't running anything: virtually every file
+    # sitting in /tmp, a build cache, or a Downloads folder would otherwise
+    # get bumped to "high"/"medium" for simply existing there. Skipped for
+    # file-scan entries; the "(deleted)" check below is harmless no-op for
+    # them anyway (a plain file path never contains that psutil marker).
+    is_live_process = p.pid >= 0
     if exe:
         if "(deleted)" in exe_lower:
             # Strong signal specific to psutil/Linux: the binary was
@@ -1186,10 +1204,10 @@ def compute_rule_based_risk(p: ProcessInfo, baseline: Optional[dict] = None) -> 
             # of malicious self-deletion (but also, more benignly, of a
             # package update without a restart).
             level = _bump(level, "high", f"executable deleted from disk after the process launched ({exe})", signals)
-        elif exe_lower.startswith(_TEMP_EXE_PREFIXES):
+        elif is_live_process and exe_lower.startswith(_TEMP_EXE_PREFIXES):
             if not whitelist_hit:
                 level = _bump(level, "high", f"executable launched from a temporary directory ({exe})", signals)
-        elif not exe_lower.startswith(_STANDARD_EXE_PREFIXES) and not exe_lower.startswith(("/home/", "/users/")):
+        elif is_live_process and not exe_lower.startswith(_STANDARD_EXE_PREFIXES) and not exe_lower.startswith(("/home/", "/users/")):
             if not whitelist_hit:
                 level = _bump(level, "medium", f"executable outside the standard system directories ({exe})", signals)
 
@@ -1805,12 +1823,37 @@ class EnrichmentCache:
             self._conn.close()
 
 
+def resolve_plugin_paths(patterns: list[str]) -> list[Path]:
+    """Expands --plugin arguments (H27) into a deduplicated, ordered list
+    of paths. Each argument may be a literal file or a glob pattern (e.g.
+    plugins/*.py) -- glob-expanded here so it works the same whether the
+    shell already expanded it or the user quoted it to defer expansion to
+    the script. A pattern that matches nothing is kept as-is rather than
+    silently dropped, so a genuine typo still surfaces apply_plugin's own
+    "Unreadable plugin" error instead of just doing nothing."""
+    import glob as glob_module
+    seen: set[Path] = set()
+    ordered: list[Path] = []
+    for pattern in patterns:
+        matches = sorted(glob_module.glob(pattern)) or [pattern]
+        for m in matches:
+            p = Path(m)
+            if p not in seen:
+                seen.add(p)
+                ordered.append(p)
+    return ordered
+
+
 def apply_plugin(processes: list[ProcessInfo], plugin_path: Path) -> None:
     """Loads a user Python plugin (H27) exposing a function
-    `enrich(process_info: dict) -> dict` and merges its result into
-    p.enrichment["plugin"]. Any plugin error is logged, never fatal —
-    the plugin is USER code provided explicitly via --plugin, executed
-    with the same rights as the script itself."""
+    `enrich(process_info: dict) -> dict` and APPENDS its result (tagged
+    with the plugin's own filename under "_plugin") to the list at
+    p.enrichment["plugin"] -- called once per resolved --plugin path, so
+    multiple plugins firing on the same process each keep their own
+    entry rather than the last one silently overwriting the others. Any
+    plugin error is logged, never fatal — the plugin is USER code
+    provided explicitly via --plugin, executed with the same rights as
+    the script itself."""
     import importlib.util
     spec = importlib.util.spec_from_file_location("process_analyzer_user_plugin", plugin_path)
     if spec is None or spec.loader is None:
@@ -1827,6 +1870,7 @@ def apply_plugin(processes: list[ProcessInfo], plugin_path: Path) -> None:
         logger.error("Plugin %s does not expose an enrich(process_info) -> dict function.", plugin_path)
         return
 
+    plugin_name = plugin_path.stem
     n_ok = n_err = 0
     for p in processes:
         info = {
@@ -1834,18 +1878,470 @@ def apply_plugin(processes: list[ProcessInfo], plugin_path: Path) -> None:
             "exe": p.exe, "cwd": p.cwd, "cmdline": p.cmdline,
             "cpu_percent": p.cpu_percent, "memory_percent": p.memory_percent,
             "connections": p.connections, "container": p.container,
+            # Results already appended by EARLIER --plugin entries (this
+            # tool applies them in the order given on the command line) on
+            # this SAME process, so a later, correlation-style plugin can
+            # reason about co-occurring findings instead of seeing this
+            # process in isolation. Empty for the first plugin to run, or
+            # if none of the previous ones fired on this process. A copy,
+            # not a reference: a plugin mutating it can't corrupt p.enrichment.
+            "prior_plugin_results": list((p.enrichment or {}).get("plugin", [])),
         }
         try:
             result = enrich_fn(info)
             if isinstance(result, dict) and result:
                 if p.enrichment is None:
                     p.enrichment = _default_enrichment("plugin_only")
-                p.enrichment["plugin"] = result
+                p.enrichment.setdefault("plugin", [])
+                p.enrichment["plugin"].append({"_plugin": plugin_name, **result})
                 n_ok += 1
         except Exception as exc:
             n_err += 1
             logger.debug("Plugin error on pid=%s: %s", p.pid, exc)
     logger.info("Plugin %s applied: %d processes enriched, %d errors.", plugin_path.name, n_ok, n_err)
+
+
+# ---------------------------------------------------------------------------
+# H34. --stream-focus-on: file-analysis mode (directory/file, not live PIDs)
+# ---------------------------------------------------------------------------
+
+# Magic-byte signatures for "this is actually an executable/script/archive"
+# regardless of what the filename claims. Order matters only for shebang
+# (variable-length prefix), checked separately below.
+_MAGIC_SIGNATURES: list[tuple[bytes, str]] = [
+    (b"\x7fELF", "ELF executable/library"),
+    (b"MZ", "PE/DOS executable"),
+    (b"\xfe\xed\xfa\xce", "Mach-O executable (32-bit)"),
+    (b"\xfe\xed\xfa\xcf", "Mach-O executable (64-bit)"),
+    (b"\xce\xfa\xed\xfe", "Mach-O executable (32-bit, reversed)"),
+    (b"\xcf\xfa\xed\xfe", "Mach-O executable (64-bit, reversed)"),
+    (b"\xca\xfe\xba\xbe", "Mach-O universal binary (fat)"),
+    (b"PK\x03\x04", "ZIP/archive-based container (jar, apk, docx...)"),
+    (b"\x1f\x8b", "gzip-compressed data"),
+]
+
+# Extensions a user would reasonably expect to be inert data, not code —
+# a magic-byte hit against one of these is the actual "masquerading" signal.
+_DATA_LIKE_EXTENSIONS = {
+    ".txt", ".bon", ".log", ".csv", ".json", ".md", ".conf", ".cfg", ".ini",
+    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".ico",
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".mp3", ".mp4", ".wav", ".avi", ".mov", ".dat", ".bak", ".tmp",
+}
+
+
+def _detect_true_file_kind(path: Path, head: bytes) -> Optional[str]:
+    """Best-effort real kind of a file from its first bytes, ignoring the
+    extension entirely. Returns None when nothing conclusive was found —
+    absence of a hit is not proof the file is inert."""
+    for signature, label in _MAGIC_SIGNATURES:
+        if head.startswith(signature):
+            return label
+    if head.startswith(b"#!"):
+        # Shebang line, e.g. "#!/bin/sh" or "#!/usr/bin/env python3"
+        first_line = head.split(b"\n", 1)[0][:120]
+        try:
+            return f"script with shebang ({first_line.decode('utf-8', errors='replace').strip()})"
+        except Exception:
+            return "script with shebang"
+    return None
+
+
+def detect_extension_mismatch(path: Path) -> Optional[dict]:
+    """Flags a file whose real content (magic bytes / shebang) disagrees
+    with what its extension implies, e.g. 'report.txt' that is actually an
+    ELF binary or a shell script -- the classic decoy-extension trick.
+    Read-only, capped I/O; never raises (best-effort heuristic, same spirit
+    as the entropy/code-cave plugins)."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(4096)
+    except OSError:
+        return None
+    if not head:
+        return None
+
+    true_kind = _detect_true_file_kind(path, head)
+    if true_kind is None:
+        return None
+
+    ext = path.suffix.lower()
+    executable_bit = False
+    try:
+        executable_bit = os.access(path, os.X_OK)
+    except OSError:
+        pass
+
+    # A shebang line ("#!...") is weak textual evidence by itself -- plenty
+    # of ordinary text/markdown/doc files legitimately START with those two
+    # characters (a shell snippet in documentation, a comment, coincidence)
+    # without being executable code at all. Require the executable bit too
+    # for THIS specific signal, or it false-positives on plain text as
+    # "high risk" for no real reason. Binary magic bytes (ELF/Mach-O/PE/
+    # zip/gzip) are NOT weakened the same way: real binary content sitting
+    # inside a .txt is inherently suspicious regardless of permission bits.
+    if true_kind.startswith("script with shebang") and not executable_bit:
+        return None
+
+    if ext in _DATA_LIKE_EXTENSIONS or (ext == "" and executable_bit):
+        return {
+            "_plugin": "builtin_extension_masquerade",
+            "declared_extension": ext or "(none)",
+            "true_kind": true_kind,
+            "executable_bit_set": executable_bit,
+            "notice": (
+                f"'{path.name}' is displayed as {ext or 'no extension'} but its content is a "
+                f"{true_kind} — extension does not match real file type, classic masquerading pattern"
+            ),
+        }
+    return None
+
+
+def _owner_username(uid: int) -> Optional[str]:
+    try:
+        import pwd
+        return pwd.getpwuid(uid).pw_name
+    except Exception:
+        return str(uid)
+
+
+# Pseudo/virtual filesystems and noise directories pruned when walking a
+# broad root (e.g. "/"): not real files worth an entropy/code-cave scan,
+# and on Linux /proc or /sys can contain pseudo-files that hang or lie
+# about their size, while macOS's Spotlight/Time Machine trees are just
+# volume on a security-relevant scan. Matched by absolute, resolved path,
+# so a scan rooted INSIDE one of these (e.g. --stream-focus-on /proc/1)
+# still works -- only sub-descent from an ancestor is pruned.
+_FS_SCAN_EXCLUDE_DIRS = {
+    "/proc", "/sys", "/dev", "/run",
+    "/System/Volumes/VM", "/System/Volumes/Preboot", "/System/Volumes/Update",
+    "/private/var/vm", "/private/var/db/dyld",
+    "/.Spotlight-V100", "/.fseventsd", "/.Trashes", "/.DocumentRevisions-V100",
+}
+
+
+def collect_files_as_processes(root: Path, max_files: Optional[int] = None) -> list[ProcessInfo]:
+    """--stream-focus-on (H34): walks every file under `root` (or analyzes
+    `root` itself if it is a single file) and turns each one into a
+    pseudo-ProcessInfo whose `exe` is the file path, so the existing
+    pipeline (rule engine, --plugin enrichment, risk scoring, exports)
+    runs on ordinary files exactly as it runs on live process executables.
+    ALL files are visited regardless of extension — including ones with no
+    extension and ones whose extension is a decoy for a different real
+    type (see detect_extension_mismatch) -- that mismatch is attached as a
+    builtin 'plugin' enrichment entry so it survives finalize_risk() and
+    every export path unchanged.
+
+    Symlinks are not followed (avoids cycles / escaping `root`); unreadable
+    entries are skipped with a warning, never fatal for the whole scan."""
+    root = Path(root)
+    if not root.exists():
+        raise OSError(f"--stream-focus-on target does not exist: {root}")
+
+    files: list[Path] = [root] if root.is_file() else []
+    if root.is_dir():
+        for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+            # Prune excluded pseudo-fs/noise directories in place so
+            # os.walk never descends into them (perf + safety on a "/" scan).
+            dirnames[:] = [
+                d for d in dirnames
+                if os.path.join(dirpath, d) not in _FS_SCAN_EXCLUDE_DIRS
+            ]
+            for fname in filenames:
+                files.append(Path(dirpath) / fname)
+            if max_files is not None and len(files) >= max_files:
+                logger.warning(
+                    "--stream-focus-on: reached --stream-focus-max-files=%d, "
+                    "stopping the walk early (coverage is partial, not exhaustive).",
+                    max_files,
+                )
+                break
+
+    if max_files is not None:
+        files = files[:max_files]
+
+    processes: list[ProcessInfo] = []
+    pid_counter = -1  # synthetic negative PIDs: never collide with real PIDs
+    total = len(files)
+    for i, file_path in enumerate(sorted(files), start=1):
+        if i % 5000 == 0:
+            logger.info("--stream-focus-on: scanned %d/%d files...", i, total)
+        try:
+            if file_path.is_symlink() or not file_path.is_file():
+                continue
+            st = file_path.stat()
+        except OSError as exc:
+            logger.warning("--stream-focus-on: unreadable %s (%s) — skipped.", file_path, exc)
+            continue
+
+        p = ProcessInfo(
+            pid=pid_counter,
+            ppid=None,
+            name=file_path.name,
+            username=_owner_username(st.st_uid) if hasattr(st, "st_uid") else None,
+            exe=str(file_path),
+            cwd=str(file_path.parent),
+            cmdline=str(file_path),
+            cpu_percent=0.0,
+            memory_percent=0.0,
+            # Reuses build_graph's existing "shared open file" edge logic (H4):
+            # every file in the same parent directory converges on one
+            # "file:<dir>" node, so the 3D graph shows the directory tree
+            # instead of an unconnected scatter of isolated file nodes.
+            open_files=[str(file_path.parent)],
+        )
+        p.incomplete_collection = ["cpu_percent", "memory_percent", "connections"]
+        # NOTE: the extension-mismatch check runs later in main(), applied
+        # like a plugin AFTER Ollama enrichment/--no-enrich — both of those
+        # unconditionally overwrite p.enrichment for processes they touch,
+        # which would silently wipe a finding set here at collection time.
+
+        processes.append(p)
+        pid_counter -= 1
+
+    logger.info("--stream-focus-on: %d file(s) collected under %s.", len(processes), root)
+    return processes
+
+
+# ---------------------------------------------------------------------------
+# H35. --focus-sec: high-value target scan (sensitive paths + CVE watchlist)
+# ---------------------------------------------------------------------------
+#
+# READ-ONLY, METADATA-ONLY: every path check below uses os.stat/os.access —
+# existence, permission bits, ownership. It NEVER opens or reads the
+# content of a credential-bearing file (no cat of shadow/id_rsa/.env/etc);
+# that stays true even for the operator running this tool. The goal is
+# "is this the kind of exposure attackers look for first", not "here are
+# the secrets".
+#
+# The CVE watchlist is intentionally SHORT and made only of widely
+# documented, independently verifiable CVEs (Log4Shell, Zerologon,
+# PrintNightmare, EternalBlue, Follina) — the kind of "if this software
+# family is present, its patch level is worth checking first" signal.
+# It maps a PROCESS/SOFTWARE FAMILY to its historical CVE family, not a
+# live vulnerability scanner: presence of the process proves nothing by
+# itself about the current patch level, only that the family is worth
+# checking (against NVD/vendor advisories) before anything else.
+_FOCUS_SEC_CVE_WATCHLIST: list[dict] = [
+    {
+        "match": ("java", "log4j", "log4shell"),
+        "cve": "CVE-2021-44228", "name": "Log4Shell",
+        "note": "JVM process detected -- if it bundles Log4j2 2.0-2.14.1, check for the JNDI lookup RCE "
+                "(patched in 2.15.0+). Presence of a JVM proves nothing by itself; verify the actual "
+                "log4j-core version in the app's dependencies.",
+    },
+    {
+        "match": ("lsass", "netlogon"),
+        "cve": "CVE-2020-1472", "name": "Zerologon",
+        "note": "Domain-controller-adjacent process (LSASS/Netlogon) -- verify the DC has the August 2020+ "
+                "Netlogon secure-channel patch applied.",
+    },
+    {
+        "match": ("spoolsv", "print spooler", "printspooler"),
+        "cve": "CVE-2021-34527", "name": "PrintNightmare",
+        "note": "Windows Print Spooler service running -- verify the July 2021+ patch, or that spooler is "
+                "disabled on servers that don't need printing (common hardening baseline).",
+    },
+    {
+        "match": ("smbd", "srv.sys", "smb"),
+        "cve": "CVE-2017-0144", "name": "EternalBlue / WannaCry",
+        "note": "SMB service present -- verify SMBv1 is disabled and MS17-010 is patched (still found "
+                "unpatched on legacy internal hosts years later).",
+    },
+    {
+        "match": ("winword", "msdt", "wmiprvse"),
+        "cve": "CVE-2022-30190", "name": "Follina",
+        "note": "MSDT/Office-adjacent process -- verify the June 2022+ patch for the MSDT URL-protocol RCE "
+                "reachable from a crafted Office document.",
+    },
+]
+
+# High-value FILE/PATH patterns most often targeted for credential theft,
+# persistence, or lateral movement. Deduplicated and organized by category
+# from common incident-response/pentest checklists (a much larger raw list
+# was supplied in chat; entries kept here are the ones a metadata-only,
+# read-only check can meaningfully flag -- generic web-app config names
+# like "config.php" without a fixed path, or Windows registry keys, need a
+# targeted web/registry scan this filesystem-only tool doesn't do).
+# Each entry: (glob_pattern, category, why_it_matters).
+_FOCUS_SEC_PATH_PATTERNS: list[tuple[str, str, str]] = [
+    # --- credentials / key material (Linux/macOS) ---
+    ("/etc/shadow", "credentials", "hashed system passwords"),
+    # NB: /etc/passwd is world-readable (644) BY DESIGN on every Unix --
+    # it holds usernames/UIDs, not secrets (those are in /etc/shadow,
+    # listed separately above). Category "account-list", not
+    # "credentials", so it is NOT run through the world-readable check
+    # below -- flagging it there would be a permanent false positive on
+    # every single Unix machine ever scanned.
+    ("/etc/passwd", "account-list", "system account list (not secret; shadow holds the hashes)"),
+    ("/etc/sudoers", "privilege-escalation", "sudo rules"),
+    ("/root/.ssh/id_rsa", "ssh-key", "root private SSH key"),
+    ("/root/.ssh/id_ed25519", "ssh-key", "root private SSH key"),
+    ("/root/.ssh/authorized_keys", "ssh-key", "root's authorized keys"),
+    ("/home/*/.ssh/id_rsa", "ssh-key", "user private SSH key"),
+    ("/home/*/.ssh/id_ed25519", "ssh-key", "user private SSH key"),
+    ("/home/*/.ssh/authorized_keys", "ssh-key", "user's authorized keys"),
+    ("/Users/*/.ssh/id_rsa", "ssh-key", "user private SSH key (macOS)"),
+    ("/Users/*/.ssh/id_ed25519", "ssh-key", "user private SSH key (macOS)"),
+    ("/Users/*/.ssh/authorized_keys", "ssh-key", "user's authorized keys (macOS)"),
+    ("/home/*/.bash_history", "history", "shell command history"),
+    ("/home/*/.zsh_history", "history", "shell command history"),
+    ("/home/*/.mysql_history", "history", "database command history"),
+    ("/Users/*/.bash_history", "history", "shell command history (macOS)"),
+    ("/Users/*/.zsh_history", "history", "shell command history (macOS)"),
+    ("/root/.my.cnf", "db-credentials", "MySQL root credentials"),
+    ("/*/.my.cnf", "db-credentials", "MySQL credentials"),
+    # --- persistence surfaces ---
+    ("/etc/crontab", "persistence", "system cron table"),
+    ("/etc/cron.d", "persistence", "additional cron jobs"),
+    ("/var/spool/cron/crontabs", "persistence", "per-user cron jobs"),
+    ("/etc/ld.so.preload", "persistence", "libraries force-preloaded into every process"),
+    ("/etc/rc.local", "persistence", "legacy boot script"),
+    # --- network / remote-access config ---
+    ("/etc/ssh/sshd_config", "config", "SSH daemon configuration"),
+    ("/etc/hosts", "config", "local DNS overrides"),
+    # --- web app secrets (fixed, well-known names only) ---
+    ("/var/www/html/.env", "web-secret", "app environment/secrets file"),
+    ("/var/www/html/wp-config.php", "web-secret", "WordPress DB credentials"),
+    ("/var/www/*/.env", "web-secret", "app environment/secrets file"),
+    # --- container / orchestration credentials ---
+    ("/root/.kube/config", "cloud-credentials", "Kubernetes cluster admin credentials"),
+    ("/home/*/.kube/config", "cloud-credentials", "Kubernetes cluster credentials"),
+    ("/root/.docker/config.json", "cloud-credentials", "Docker registry credentials"),
+    ("/home/*/.docker/config.json", "cloud-credentials", "Docker registry credentials"),
+    ("/var/run/docker.sock", "privilege-escalation", "Docker socket (root-equivalent if writable by the caller)"),
+    ("/etc/kubernetes/admin.conf", "cloud-credentials", "Kubernetes admin kubeconfig"),
+    # --- Windows (best-effort; only reachable when this tool runs on Windows itself) ---
+    (r"C:\Windows\System32\config\SAM", "credentials", "Windows SAM database"),
+    (r"C:\Windows\System32\config\SYSTEM", "credentials", "Windows SYSTEM hive (needed to decrypt SAM)"),
+]
+
+# Extensions checked ON TOP of the exact paths above, but only inside
+# --stream-focus-on's own file walk (never a separate full-disk glob --
+# "*.bak" under "/" would be its own denial-of-service). See main(): these
+# are folded into the extension-masquerade pass output, tagged separately.
+_FOCUS_SEC_BACKUP_EXTENSIONS = {".bak", ".old", ".swp", ".sql", ".dump"}
+
+
+def _focus_sec_permission_issue(st: "os.stat_result", category: str, path: str) -> Optional[str]:
+    """Best-effort, cross-platform-safe permission read: flags a
+    credential-bearing file that is readable/writable by users other than
+    its owner, which is the single most common real-world exposure for
+    this whole category. st_mode bits are POSIX-only -- silently skipped
+    (returns None) on platforms where they don't mean the same thing
+    (Windows ACLs are a different model).
+
+    "ssh-key" specifically covers BOTH private keys (id_rsa/id_ed25519 --
+    must never be group/other readable OR writable) and authorized_keys/
+    *.pub (PUBLIC keys -- world-READABLE is normal and expected by design;
+    only world-WRITABLE would let someone plant their own key). Treating
+    both the same way would false-positive on every default authorized_keys
+    file on every machine."""
+    if os.name != "posix":
+        return None
+    mode = st.st_mode
+    basename = os.path.basename(path)
+    is_public_key_file = basename == "authorized_keys" or basename.endswith(".pub")
+
+    if category == "ssh-key" and is_public_key_file:
+        if mode & 0o022:  # group/other WRITE only
+            return f"writable by group or other (mode {oct(mode)[-3:]}) -- someone could plant their own key"
+        return None
+
+    if category in ("credentials", "ssh-key", "db-credentials", "cloud-credentials", "web-secret"):
+        if mode & 0o077:  # any permission bit set for group or other
+            return f"readable/writable beyond its owner (mode {oct(mode)[-3:]}) -- should be 600/700"
+    return None
+
+
+def focus_sec_path_scan() -> list[dict]:
+    """--focus-sec (H35), path side: expands every pattern in
+    _FOCUS_SEC_PATH_PATTERNS (glob, so /home/*/.ssh/id_rsa matches every
+    user) and stats what exists -- METADATA ONLY, never opens the file.
+    Returns one finding per match, unreadable entries skipped silently
+    (permission-denied on /etc/shadow while unprivileged is EXPECTED, not
+    an error to surface)."""
+    import glob as glob_module
+    findings: list[dict] = []
+    for pattern, category, why in _FOCUS_SEC_PATH_PATTERNS:
+        try:
+            matches = glob_module.glob(pattern)
+        except (OSError, ValueError):
+            continue
+        for match in matches:
+            try:
+                st = os.stat(match)
+            except OSError:
+                continue
+            finding = {
+                "path": match,
+                "category": category,
+                "why": why,
+                "owner_uid": getattr(st, "st_uid", None),
+            }
+            issue = _focus_sec_permission_issue(st, category, match)
+            if issue:
+                finding["permission_issue"] = issue
+            findings.append(finding)
+    return findings
+
+
+def apply_focus_sec_cve_watchlist(processes: list[ProcessInfo]) -> int:
+    """--focus-sec (H35), process side: tags each process whose name/exe
+    matches a well-known, independently-verifiable CVE family (see
+    _FOCUS_SEC_CVE_WATCHLIST) with a plugin-style enrichment entry.
+    Applied the same way/place as detect_extension_mismatch (after Ollama
+    enrichment / --no-enrich, so it isn't wiped by their unconditional
+    p.enrichment overwrite). Returns the number of processes tagged."""
+    n_tagged = 0
+    for p in processes:
+        haystack = f"{p.name or ''} {p.exe or ''}".lower()
+        for entry in _FOCUS_SEC_CVE_WATCHLIST:
+            if any(needle in haystack for needle in entry["match"]):
+                if p.enrichment is None:
+                    p.enrichment = _default_enrichment("plugin_only")
+                p.enrichment.setdefault("plugin", []).append({
+                    "_plugin": "builtin_focus_sec_cve_watchlist",
+                    "cve": entry["cve"],
+                    "name": entry["name"],
+                    "notice": entry["note"],
+                })
+                n_tagged += 1
+    return n_tagged
+
+
+def write_focus_sec_report(findings: list[dict], processes: list[ProcessInfo], report_path: Path) -> None:
+    """Writes the standalone --focus-sec 'scan list' (H35): every
+    sensitive-path finding plus every CVE-watchlist process tag, so it can
+    be reviewed/triaged independently of the full process/file JSON export
+    (which may be huge in --stream-focus-on mode on a big tree)."""
+    cve_tags = []
+    for p in processes:
+        for entry in (p.enrichment or {}).get("plugin", []) if p.enrichment else []:
+            if entry.get("_plugin") == "builtin_focus_sec_cve_watchlist":
+                # NB: **entry last would silently overwrite "name" (process
+                # name) with the CVE's own "name" field (e.g. "Log4Shell") --
+                # keep them as distinct keys.
+                cve_tags.append({"pid": p.pid, "process_name": p.name, "exe": p.exe, **entry})
+    payload = {
+        "generated_by": "process_analyzer_allinone.py --focus-sec (H35)",
+        "path_findings": findings,
+        "process_cve_watchlist_hits": cve_tags,
+        "summary": {
+            "path_findings_total": len(findings),
+            "path_findings_with_permission_issue": sum(1 for f in findings if "permission_issue" in f),
+            "process_cve_watchlist_hits_total": len(cve_tags),
+        },
+    }
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    logger.info(
+        "--focus-sec report: %d path finding(s) (%d with a permission issue), %d process CVE-watchlist hit(s) -> %s",
+        len(findings),
+        payload["summary"]["path_findings_with_permission_issue"],
+        len(cve_tags),
+        report_path,
+    )
 
 
 def enrich_processes(
@@ -2111,6 +2607,31 @@ def build_graph_payload(graph: nx.DiGraph, processes: list[ProcessInfo]) -> dict
                 role = info.enrichment.get("probable_role", "not enriched")
                 justification = info.enrichment.get("risk_justification", "")
                 explanation = info.enrichment.get("educational_explanation", "")
+            # --plugin (H27) enrichment: a LIST now (one entry per plugin
+            # that returned a non-empty dict for this process, tagged with
+            # "_plugin"), since multiple plugins can fire on the same
+            # process and none of them should silently overwrite another.
+            # "alert"/"notice" are a convention most of the example plugins
+            # settled on, not an enforced schema -- a third-party plugin
+            # returning neither still renders via the generic key/value
+            # fallback in the panel (see renderPluginBlock). Severity
+            # escalates across ALL entries the same way rules-vs-AI risk
+            # does: alert > notice > info, never silently dropped.
+            plugin_results = (info.enrichment.get("plugin") if info and info.enrichment else None) or []
+            plugin_severity = None
+            plugin_summary = ""
+            if plugin_results:
+                alerts = [r for r in plugin_results if "alert" in r]
+                notices = [r for r in plugin_results if "notice" in r]
+                if alerts:
+                    plugin_severity = "alert"
+                    plugin_summary = "; ".join(f"{r.get('_plugin', '?')}: {r['alert']}" for r in alerts)
+                elif notices:
+                    plugin_severity = "notice"
+                    plugin_summary = "; ".join(f"{r.get('_plugin', '?')}: {r['notice']}" for r in notices)
+                else:
+                    plugin_severity = "info"
+                    plugin_summary = f"{len(plugin_results)} plugin{'s' if len(plugin_results) != 1 else ''} reported data"
             # "Knowledge" mode: we prefer the Ollama explanation if the
             # process was actually enriched (non-empty explanation),
             # otherwise we fall back to the local static knowledge base.
@@ -2120,11 +2641,13 @@ def build_graph_payload(graph: nx.DiGraph, processes: list[ProcessInfo]) -> dict
             mem = round(data.get("mem", 0), 2)
             # "Low interest" node (H18): hidden by default on the HTML
             # side to reduce visual density, never if a real risk was
-            # detected (rules or AI).
+            # detected (rules, AI, or now a --plugin result -- same
+            # protective carve-out, third signal source).
             low_interest = (
                 graph.degree(node) <= 1
                 and (cpu + mem) < 1.0
                 and risk == "low"
+                and not plugin_results
             )
             nodes.append({
                 "id": node,
@@ -2156,6 +2679,9 @@ def build_graph_payload(graph: nx.DiGraph, processes: list[ProcessInfo]) -> dict
                 "low_interest": low_interest,
                 "enriched": enriched,
                 "knowledge_text": knowledge_text,
+                "plugin": plugin_results or None,
+                "plugin_severity": plugin_severity,
+                "plugin_summary": plugin_summary,
                 "val": round(max(1.5, (cpu + mem) * 1.2 + 2), 2),
                 "color": RISK_COLORS.get(risk, RISK_COLORS["unknown"]),
             })
@@ -2326,6 +2852,12 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="legend-row" data-key="medium"><span class="dot" style="background:#FFC107;color:#FFC107"></span>Medium</div>
     <div class="legend-row" data-key="high"><span class="dot" style="background:#F44336;color:#F44336"></span>High</div>
     <div class="legend-row" data-key="unknown"><span class="dot" style="background:#9E9E9E;color:#9E9E9E"></span>Unknown</div>
+    <div id="pluginLegendSection" style="display:none">
+      <h4>--plugin (H27)</h4>
+      <div class="legend-row" data-key="plugin_alert"><span class="dot" style="background:#F44336;color:#F44336"></span>Plugin alert</div>
+      <div class="legend-row" data-key="plugin_notice"><span class="dot" style="background:#FFC107;color:#FFC107"></span>Plugin notice</div>
+      <div class="legend-row" data-key="plugin_info"><span class="dot" style="background:#9E9E9E;color:#9E9E9E"></span>Plugin data (no alert/notice)</div>
+    </div>
     <h4>Network connections</h4>
     <div class="legend-row" data-key="proto_tcp"><span class="line-swatch" style="background:#42A5F5;color:#42A5F5"></span>TCP</div>
     <div class="legend-row" data-key="proto_udp"><span class="line-swatch" style="background:#FFA726;color:#FFA726"></span>UDP</div>
@@ -2371,6 +2903,13 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     // density; togglable from the legend ("Display" section), never
     // applied to a node whose final risk is not "low".
     const hiddenKeys = new Set(['low_interest']);
+    // The --plugin legend section only exists to filter something: hide
+    // it entirely on a run without --plugin instead of showing empty,
+    // meaningless toggles (Regard du Novice -- no control for data that
+    // isn't there).
+    if (GRAPH_DATA.nodes.some(n => n.plugin_severity)) {
+      document.getElementById('pluginLegendSection').style.display = '';
+    }
     let currentMode = 'security';
     let lastSelectedNode = null;
 
@@ -2393,6 +2932,13 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     function riskColor(r) {
       return { low: '#4CAF50', medium: '#FFC107', high: '#F44336', unknown: '#9E9E9E' }[r] || '#9E9E9E';
     }
+
+    // --plugin (H27) severity: "alert"/"notice" are the convention most
+    // example plugins settled on, reusing the same red/amber vocabulary
+    // as RISK_COLORS so a plugin finding reads as seriously as a rule or
+    // AI finding, not as a lesser, decorative signal.
+    const PLUGIN_SEVERITY_COLORS = { alert: '#F44336', notice: '#FFC107', info: '#9E9E9E' };
+    const PLUGIN_SEVERITY_LABELS = { alert: 'Plugin alert', notice: 'Plugin notice', info: 'Plugin data' };
 
     // "Process type" categorical palette — same values as
     // CATEGORY_COLORS on the Python side, validated via the dataviz skill.
@@ -2484,6 +3030,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
       if (node.type === 'connection') return ['proto_' + node.protocol];
       const keys = [node.risk_level || 'unknown', 'cat_' + categorySlug(node.category)];
       if (node.low_interest) keys.push('low_interest');
+      if (node.plugin_severity) keys.push('plugin_' + node.plugin_severity);
       return keys;
     }
 
@@ -2580,6 +3127,48 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
       return `<div class="field"><label>Incomplete collection</label><div class="val" style="color:#FFC107">${issues.map(escapeHtml).join(', ')}</div></div>`;
     }
 
+    // Renders whatever --plugin (H27) returned -- now a LIST, one entry
+    // per plugin that fired on this process (see resolve_plugin_paths /
+    // apply_plugin on the Python side). No schema is enforced on user
+    // plugins beyond "a dict", so each entry degrades gracefully: alert/
+    // notice (the convention most example plugins use) become that
+    // entry's headline badge, everything else in its dict still renders
+    // as plain fields underneath rather than being silently dropped.
+    function fmtPluginValue(v) {
+      // Recurse through fmtPluginValue itself, not the bare String() --
+      // an array of objects (e.g. 27_code_cave_scan's "regions") would
+      // otherwise stringify each element to the unhelpful "[object
+      // Object]" instead of its actual JSON content.
+      if (Array.isArray(v)) return v.map(fmtPluginValue).join(', ');
+      if (v !== null && typeof v === 'object') return JSON.stringify(v);
+      return String(v);
+    }
+    function renderPluginBlock(node) {
+      if (!node.plugin || !node.plugin.length) return '';
+      const sev = node.plugin_severity || 'info';
+      const color = PLUGIN_SEVERITY_COLORS[sev] || PLUGIN_SEVERITY_COLORS.info;
+      const count = node.plugin.length;
+      let rows = `<div class="field"><label>--plugin (${count} result${count !== 1 ? 's' : ''})</label>
+        <span class="risk-badge" style="background:${color}22; color:${color}; border:1px solid ${color}">${escapeHtml(PLUGIN_SEVERITY_LABELS[sev] || 'Plugin data')}</span>
+      </div>`;
+      node.plugin.forEach(result => {
+        const rSev = 'alert' in result ? 'alert' : ('notice' in result ? 'notice' : 'info');
+        const rColor = PLUGIN_SEVERITY_COLORS[rSev];
+        const headline = result.alert || result.notice || '';
+        rows += `<div class="field" style="margin-left:10px; border-left:2px solid ${rColor}66; padding-left:8px">
+          <label>${escapeHtml(result._plugin || 'plugin')}</label>
+          <span class="risk-badge" style="background:${rColor}22; color:${rColor}; border:1px solid ${rColor}">${escapeHtml(PLUGIN_SEVERITY_LABELS[rSev])}</span>
+          ${headline ? `<div class="val" style="margin-top:4px">${escapeHtml(String(headline))}</div>` : ''}
+        </div>`;
+        for (const [k, v] of Object.entries(result)) {
+          if (k === '_plugin' || k === 'alert' || k === 'notice' || v === null || v === undefined || v === '') continue;
+          const val = fmtPluginValue(v);
+          rows += `<div class="field" style="margin-left:10px"><label>${escapeHtml(k)} ${copyBtn(val, 'copy')}</label><div class="val">${escapeHtml(val)}</div></div>`;
+        }
+      });
+      return rows;
+    }
+
     function renderSecurityPanel(node) {
       if (node.type === 'file') return panelHeader(node) + `<div class="field"><label>Path</label><div class="val">${escapeHtml(node.full_path || node.name)}</div></div>`;
       if (node.type === 'connection') {
@@ -2595,6 +3184,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="field"><label>Final risk level</label>
           <span class="risk-badge" style="background:${riskColor(risk)}22; color:${riskColor(risk)}; border:1px solid ${riskColor(risk)}">${riskLabel(risk)}</span>
           ${node.risk_divergent ? '<span class="risk-badge" style="background:#6C9DFF22; color:#6C9DFF; border:1px solid #6C9DFF; margin-left:6px">diverging opinions</span>' : ''}
+          ${node.plugin_severity ? `<span class="risk-badge" style="background:${PLUGIN_SEVERITY_COLORS[node.plugin_severity]}22; color:${PLUGIN_SEVERITY_COLORS[node.plugin_severity]}; border:1px solid ${PLUGIN_SEVERITY_COLORS[node.plugin_severity]}; margin-left:6px">${escapeHtml(PLUGIN_SEVERITY_LABELS[node.plugin_severity])}</span>` : ''}
         </div>
         <div class="field"><label>Deterministic rules (without AI)</label>
           <span class="risk-badge" style="background:${riskColor(rulesRisk)}22; color:${riskColor(rulesRisk)}; border:1px solid ${riskColor(rulesRisk)}">${riskLabel(rulesRisk)}</span>
@@ -2605,6 +3195,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
         </div>` : ''}
         <div class="field"><label>Justification</label><div class="val">${escapeHtml(node.risk_justification || '—')}</div></div>
         <div class="field"><label>Category</label><div class="val">${escapeHtml(node.category || 'unknown')}</div></div>
+        ${renderPluginBlock(node)}
         <div class="field"><label>External connections</label><div class="val">${externalConns.length} out of ${node.n_connections || 0} total</div></div>
         ${externalConns.length ? fmtConnections(externalConns) : ''}
         ${investigationRows(node)}
@@ -2627,12 +3218,16 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="field"><label>Stop this process ${copyBtn('kill ' + node.pid, 'copy')}</label><div class="val" style="color:var(--muted)">kill ${node.pid}</div></div>
         <div class="field"><label>Open files</label><div class="val">${node.n_open_files ?? 0}</div></div>
         <div class="field"><label>Connections (${node.n_connections ?? 0})</label>${fmtConnections(node.connections)}</div>
+        ${renderPluginBlock(node)}
         ${fmtIncompleteWarning(node)}
       `;
     }
 
     function renderVerbosePanel(node) {
-      const skip = new Set(['id', 'color', 'val', 'connections']);
+      // connections and plugin are lists of objects -- each gets its own
+      // specialized renderer instead of the generic String(v) fallback,
+      // which would otherwise print an unhelpful "[object Object]".
+      const skip = new Set(['id', 'color', 'val', 'connections', 'plugin']);
       let rows = '';
       for (const [k, v] of Object.entries(node)) {
         if (skip.has(k) || v === null || v === undefined || v === '') continue;
@@ -2641,6 +3236,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
       if (node.connections && node.connections.length) {
         rows += `<div class="field"><label>connections</label>${fmtConnections(node.connections)}</div>`;
       }
+      rows += renderPluginBlock(node);
       return panelHeader(node) + rows;
     }
 
@@ -2757,6 +3353,23 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     document.getElementById('zoomIn').addEventListener('click', () => zoomBy(0.75));
     document.getElementById('zoomOut').addEventListener('click', () => zoomBy(1.35));
     document.getElementById('recenter').addEventListener('click', recenter);
+    // Manual node resizing (H35): "b" grows, "s" shrinks EVERY node
+    // currently in the graph (not just the selected one). Reassigning
+    // .nodeVal('val') to itself after mutating node.val is the standard
+    // 3d-force-graph trick to force a re-render without rebuilding the
+    // whole graph.
+    const NODE_RESIZE_MIN = 1;
+    const NODE_RESIZE_MAX = 200;
+    function resizeAllNodes(factor) {
+      const { nodes } = currentGraphData();
+      if (!nodes.length) return;
+      for (const node of nodes) {
+        if (node._baseVal === undefined) node._baseVal = node.val || 4;
+        const current = node.val || node._baseVal;
+        node.val = Math.min(NODE_RESIZE_MAX, Math.max(NODE_RESIZE_MIN, current * factor));
+      }
+      Graph.nodeVal(Graph.nodeVal());
+    }
     // Keyboard shortcuts (H20): Ctrl+wheel in the browser zooms the PAGE
     // (not the graph) and Ctrl+R reloads the page by default — we
     // intercept these combinations with preventDefault() to redirect
@@ -2787,6 +3400,8 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
       if (e.ctrlKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); recenter(); return; }
       if (e.ctrlKey && (e.key === '+' || e.key === '=')) { e.preventDefault(); zoomBy(0.75); return; }
       if (e.ctrlKey && (e.key === '-' || e.key === '_')) { e.preventDefault(); zoomBy(1.35); return; }
+      if ((e.key === 'b' || e.key === 'B') && !e.metaKey && !e.ctrlKey) { resizeAllNodes(1.25); return; }
+      if ((e.key === 's' || e.key === 'S') && !e.metaKey && !e.ctrlKey) { resizeAllNodes(0.8); return; }
       if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey) recenter();
     });
   </script>
@@ -3563,6 +4178,30 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--sandbox", type=Path, default=None,
                          help="Sandbox mode: reads the processes from a JSON file (--json-export format) "
                               "instead of the real system — to test rules/config/rendering risk-free")
+    parser.add_argument("--stream-focus-on", type=Path, default=None, metavar="DIR_OR_FILE",
+                         help="File-analysis mode (H34): instead of live processes, walks every file "
+                              "under DIR_OR_FILE (or analyzes a single file) recursively — every file, "
+                              "whatever its displayed extension (.txt, .bon, no extension, etc.), including "
+                              "ones whose real content silently disagrees with that extension. Each file is "
+                              "turned into a pseudo-process (exe=file path) so the SAME pipeline runs on it: "
+                              "rule engine, --plugin (H27, e.g. entropy/code-cave), and a built-in magic-byte "
+                              "vs extension mismatch check that flags a file masquerading under a decoy "
+                              "extension. Mutually exclusive with --sandbox/--pid/--watch.")
+    parser.add_argument("--focus-sec", action="store_true",
+                         help="High-value target scan (H35): checks a built-in list of sensitive paths "
+                              "(SSH keys, shadow/passwd, shell history, cron, kubeconfig, docker socket...) "
+                              "for existence and risky permissions (metadata only, file content is never "
+                              "read), and tags running/scanned processes matching a short, independently-"
+                              "verifiable CVE watchlist (Log4Shell, Zerologon, PrintNightmare, EternalBlue, "
+                              "Follina). Writes a standalone report, see --focus-sec-report. Works with or "
+                              "without --stream-focus-on.")
+    parser.add_argument("--focus-sec-report", type=Path, default=None, metavar="PATH",
+                         help="Output path for the --focus-sec scan list (default: "
+                              "outputs/focus_sec_scan_<timestamp>.json)")
+    parser.add_argument("--stream-focus-max-files", type=int, default=None, metavar="N",
+                         help="With --stream-focus-on: stops the walk after N files (safety cap for a "
+                              "broad root like '/'); default is unlimited — use --min-score/--max-processes "
+                              "and --enrich-limit to keep the LLM/enrichment cost bounded regardless")
     parser.add_argument("--preload-model", action="store_true",
                          help="Downloads/prepares the Ollama model (--model) then exits, without analysis — "
                               "to prepare for offline usage")
@@ -3592,9 +4231,12 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--retry-failed", type=int, default=0, metavar="N",
                          help="Retries up to N times the enrichments in transient failure "
                               "(timeout, saturated Ollama), with exponential backoff 1s/2s/4s...")
-    parser.add_argument("--plugin", type=Path, default=None,
-                         help="User Python plugin exposing enrich(process_info: dict) -> dict, "
-                              "applied to each process after the Ollama enrichment")
+    parser.add_argument("--plugin", nargs="+", metavar="PATH", default=None,
+                         help="One or more user Python plugins, each exposing "
+                              "enrich(process_info: dict) -> dict, applied to each process after "
+                              "the Ollama enrichment. Accepts several paths and/or a glob pattern "
+                              "(e.g. --plugin plugins/*.py); quote the pattern to have the script "
+                              "expand it itself rather than the shell")
 
     # --- Additional exports ---
     parser.add_argument("--csv-edges", type=Path, default=None,
@@ -3641,7 +4283,25 @@ def main(argv=None) -> int:
     if getattr(args, "watch", False):
         return run_watch(args)
 
-    if getattr(args, "sandbox", None):
+    stream_focus_on = getattr(args, "stream_focus_on", None)
+    if stream_focus_on and getattr(args, "sandbox", None):
+        logger.error("--stream-focus-on and --sandbox are mutually exclusive.")
+        return 1
+    if stream_focus_on and getattr(args, "pid", None) is not None:
+        logger.error("--stream-focus-on and --pid are mutually exclusive (no live PIDs in file-analysis mode).")
+        return 1
+
+    if stream_focus_on:
+        logger.info("File-analysis mode (H34): scanning %s ...", stream_focus_on)
+        try:
+            processes = collect_files_as_processes(
+                stream_focus_on,
+                max_files=getattr(args, "stream_focus_max_files", None),
+            )
+        except OSError as exc:
+            logger.error("--stream-focus-on failed: %s", exc)
+            return 1
+    elif getattr(args, "sandbox", None):
         try:
             processes = load_sandbox_processes(args.sandbox)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -3717,9 +4377,47 @@ def main(argv=None) -> int:
             if cache is not None:
                 cache.close()
 
-    # User plugin (H27), applied after the Ollama enrichment.
+    # User plugin(s) (H27), applied after the Ollama enrichment. --plugin
+    # accepts several paths and/or glob patterns; each resolved plugin
+    # runs independently and appends its own entry rather than
+    # overwriting the others (see apply_plugin).
     if getattr(args, "plugin", None):
-        apply_plugin(processes, args.plugin)
+        plugin_paths = resolve_plugin_paths(args.plugin)
+        logger.info("Running %d plugin(s): %s", len(plugin_paths), ", ".join(p.name for p in plugin_paths))
+        for plugin_path in plugin_paths:
+            apply_plugin(processes, plugin_path)
+
+    # Built-in extension-masquerade check (H34), applied exactly like a
+    # --plugin: AFTER Ollama enrichment / --no-enrich so it survives their
+    # unconditional p.enrichment overwrite for processes outside the
+    # enrichment limit.
+    if stream_focus_on:
+        n_mismatch = 0
+        for p in processes:
+            mismatch = detect_extension_mismatch(Path(p.exe)) if p.exe else None
+            if mismatch:
+                if p.enrichment is None:
+                    p.enrichment = _default_enrichment("plugin_only")
+                p.enrichment.setdefault("plugin", []).append(mismatch)
+                n_mismatch += 1
+        logger.info("--stream-focus-on: %d file(s) flagged for extension/content mismatch.", n_mismatch)
+
+    # --focus-sec (H35): high-value path scan + CVE watchlist tagging,
+    # same "applied after enrichment" placement as the mismatch check
+    # above, for the same reason (survive the enrichment-limit overwrite).
+    if getattr(args, "focus_sec", False):
+        logger.info("--focus-sec: scanning high-value paths and matching the CVE watchlist...")
+        path_findings = focus_sec_path_scan()
+        n_cve_tagged = apply_focus_sec_cve_watchlist(processes)
+        logger.info(
+            "--focus-sec: %d sensitive path(s) found (%d with a risky permission), %d process(es) matched the CVE watchlist.",
+            len(path_findings),
+            sum(1 for f in path_findings if "permission_issue" in f),
+            n_cve_tagged,
+        )
+        focus_sec_stamp = time.strftime("%Y%m%d_%H%M%S")
+        focus_sec_report_path = getattr(args, "focus_sec_report", None) or Path(f"outputs/focus_sec_scan_{focus_sec_stamp}.json")
+        write_focus_sec_report(path_findings, processes, focus_sec_report_path)
 
     # Combine rules + AI opinion by escalation only (H17), now that the
     # enrichment (or its fallback) has filled p.enrichment for each one.
@@ -3729,7 +4427,7 @@ def main(argv=None) -> int:
     # History + comparison (H29). The snapshot is recorded AFTER
     # finalize_risk so the compared levels are the definitive ones.
     previous_from_history = None
-    if not getattr(args, "no_history", False) and not getattr(args, "sandbox", None):
+    if not getattr(args, "no_history", False) and not getattr(args, "sandbox", None) and not stream_focus_on:
         try:
             previous_from_history = append_history(processes, getattr(args, "history_file", Path("outputs/history.json")))
         except OSError as exc:

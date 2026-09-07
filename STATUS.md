@@ -2,7 +2,7 @@
 
 **Current status:** Actively in development (personal / study project, published on GitHub)
 
-**Last significant activity:** 2026-08-13
+**Last significant activity:** 2026-09-07 (38 plugins, file-analysis mode `--stream-focus-on`, `--focus-sec`, reproducible install/build — unreleased, see `CHANGELOG.md`)
 
 ## What this means
 
