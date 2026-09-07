@@ -340,62 +340,62 @@ Findings are surfaced in the 3D graph (legend section, alert/notice/info colouri
 Plugins grouped by what they detect:
 
 ### Détection & Masquerading
-[![01 masquerading](https://img.shields.io/badge/01-masquerading__system__process__name-6d4aff)]()
-[![04 deleted binary](https://img.shields.io/badge/04-deleted__binary__still__running-6d4aff)]()
-[![28 parent anomaly](https://img.shields.io/badge/28-parent__process__anomaly-6d4aff)]()
-[![32 timestomping](https://img.shields.io/badge/32-timestomping__detector-6d4aff)]()
+[![01 masquerading](https://img.shields.io/badge/01-masquerading__system__process__name-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/01_masquerading_system_process_name.py)
+[![04 deleted binary](https://img.shields.io/badge/04-deleted__binary__still__running-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/04_deleted_binary_still_running.py)
+[![28 parent anomaly](https://img.shields.io/badge/28-parent__process__anomaly-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/28_parent_process_anomaly.py)
+[![32 timestomping](https://img.shields.io/badge/32-timestomping__detector-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/32_timestomping_detector.py)
 
 ### Réseau
-[![08 cloud metadata](https://img.shields.io/badge/08-cloud__metadata__endpoint__contact-6d4aff)]()
-[![09 mining pool](https://img.shields.io/badge/09-mining__pool__port__heuristic-6d4aff)]()
-[![14 listening all interfaces](https://img.shields.io/badge/14-listening__on__all__interfaces-6d4aff)]()
-[![15 fanout](https://img.shields.io/badge/15-high__connection__fanout-6d4aff)]()
-[![30 persistent conn](https://img.shields.io/badge/30-persistent__external__connection-6d4aff)]()
-[![21 container net exposure](https://img.shields.io/badge/21-container__host__network__exposure-6d4aff)]()
+[![08 cloud metadata](https://img.shields.io/badge/08-cloud__metadata__endpoint__contact-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/08_cloud_metadata_endpoint_contact.py)
+[![09 mining pool](https://img.shields.io/badge/09-mining__pool__port__heuristic-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/09_mining_pool_port_heuristic.py)
+[![14 listening all interfaces](https://img.shields.io/badge/14-listening__on__all__interfaces-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/14_listening_on_all_interfaces.py)
+[![15 fanout](https://img.shields.io/badge/15-high__connection__fanout-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/15_high_connection_fanout.py)
+[![30 persistent conn](https://img.shields.io/badge/30-persistent__external__connection-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/30_persistent_external_connection.py)
+[![21 container net exposure](https://img.shields.io/badge/21-container__host__network__exposure-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/21_container_host_network_exposure.py)
 
 ### Command line & payloads
-[![05 reverse shell](https://img.shields.io/badge/05-reverse__shell__cmdline__pattern-6d4aff)]()
-[![06 lolbin](https://img.shields.io/badge/06-lolbin__suspicious__usage-6d4aff)]()
-[![07 base64 blob](https://img.shields.io/badge/07-base64__blob__in__cmdline-6d4aff)]()
-[![29 powershell encoded](https://img.shields.io/badge/29-powershell__encoded__command-6d4aff)]()
-[![25 secrets cmdline](https://img.shields.io/badge/25-secrets__in__cmdline__scan-6d4aff)]()
-[![24 outdated interpreter](https://img.shields.io/badge/24-outdated__interpreter__hint-6d4aff)]()
+[![05 reverse shell](https://img.shields.io/badge/05-reverse__shell__cmdline__pattern-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/05_reverse_shell_cmdline_pattern.py)
+[![06 lolbin](https://img.shields.io/badge/06-lolbin__suspicious__usage-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/06_lolbin_suspicious_usage.py)
+[![07 base64 blob](https://img.shields.io/badge/07-base64__blob__in__cmdline-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/07_base64_blob_in_cmdline.py)
+[![29 powershell encoded](https://img.shields.io/badge/29-powershell__encoded__command-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/29_powershell_encoded_command.py)
+[![25 secrets cmdline](https://img.shields.io/badge/25-secrets__in__cmdline__scan-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/25_secrets_in_cmdline_scan.py)
+[![24 outdated interpreter](https://img.shields.io/badge/24-outdated__interpreter__hint-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/24_outdated_interpreter_hint.py)
 
 ### Intégrité fichier & binaire
-[![03 world writable](https://img.shields.io/badge/03-world__writable__binary-6d4aff)]()
-[![11 codesign](https://img.shields.io/badge/11-macos__code__signature__check-6d4aff)]()
-[![12 sha256 fingerprint](https://img.shields.io/badge/12-binary__sha256__fingerprint-6d4aff)]()
-[![13 recently modified](https://img.shields.io/badge/13-recently__modified__binary-6d4aff)]()
-[![26 entropy](https://img.shields.io/badge/26-executable__entropy-6d4aff)]()
-[![27 code cave](https://img.shields.io/badge/27-code__cave__scan-6d4aff)]()
-[![32 timestomping](https://img.shields.io/badge/32-timestomping__detector-6d4aff)]()
-[![33 hash blocklist](https://img.shields.io/badge/33-hash__blocklist__lookup-6d4aff)]()
-[![34 yara runner](https://img.shields.io/badge/34-yara__runner-6d4aff)]()
+[![03 world writable](https://img.shields.io/badge/03-world__writable__binary-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/03_world_writable_binary.py)
+[![11 codesign](https://img.shields.io/badge/11-macos__code__signature__check-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/11_macos_code_signature_check.py)
+[![12 sha256 fingerprint](https://img.shields.io/badge/12-binary__sha256__fingerprint-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/12_binary_sha256_fingerprint.py)
+[![13 recently modified](https://img.shields.io/badge/13-recently__modified__binary-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/13_recently_modified_binary.py)
+[![26 entropy](https://img.shields.io/badge/26-executable__entropy-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/26_executable_entropy.py)
+[![27 code cave](https://img.shields.io/badge/27-code__cave__scan-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/27_code_cave_scan.py)
+[![32 timestomping](https://img.shields.io/badge/32-timestomping__detector-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/32_timestomping_detector.py)
+[![33 hash blocklist](https://img.shields.io/badge/33-hash__blocklist__lookup-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/33_hash_blocklist_lookup.py)
+[![34 yara runner](https://img.shields.io/badge/34-yara__runner-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/34_yara_runner.py)
 
 ### Exécution & localisation
-[![02 temp/downloads](https://img.shields.io/badge/02-running__from__temp__or__downloads-6d4aff)]()
-[![35 removable media](https://img.shields.io/badge/35-removable__media__execution-6d4aff)]()
-[![20 unusual cwd](https://img.shields.io/badge/20-working__directory__outside__expected__areas-6d4aff)]()
-[![16 unix socket tmp](https://img.shields.io/badge/16-unix__socket__in__shared__tmp-6d4aff)]()
-[![10 privileged path](https://img.shields.io/badge/10-privileged__user__unprivileged__path-6d4aff)]()
+[![02 temp/downloads](https://img.shields.io/badge/02-running__from__temp__or__downloads-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/02_running_from_temp_or_downloads.py)
+[![35 removable media](https://img.shields.io/badge/35-removable__media__execution-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/35_removable_media_execution.py)
+[![20 unusual cwd](https://img.shields.io/badge/20-working__directory__outside__expected__areas-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/20_working_directory_outside_expected_areas.py)
+[![16 unix socket tmp](https://img.shields.io/badge/16-unix__socket__in__shared__tmp-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/16_unix_socket_in_shared_tmp.py)
+[![10 privileged path](https://img.shields.io/badge/10-privileged__user__unprivileged__path-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/10_privileged_user_unprivileged_path.py)
 
 ### Secrets & environnement
-[![36 env var secrets](https://img.shields.io/badge/36-env__var__secrets__scan-6d4aff)]()
-[![37 git repo secrets](https://img.shields.io/badge/37-git__repo__secret__scan-6d4aff)]()
+[![36 env var secrets](https://img.shields.io/badge/36-env__var__secrets__scan-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/36_env_var_secrets_scan.py)
+[![37 git repo secrets](https://img.shields.io/badge/37-git__repo__secret__scan-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/37_git_repo_secret_scan.py)
 
 ### Conteneurs
-[![22 docker image lookup](https://img.shields.io/badge/22-docker__container__image__lookup-6d4aff)]()
+[![22 docker image lookup](https://img.shields.io/badge/22-docker__container__image__lookup-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/22_docker_container_image_lookup.py)
 
 ### Enrichissement psutil
-[![18 process status](https://img.shields.io/badge/18-process__status__via__psutil-6d4aff)]()
-[![19 thread/fd count](https://img.shields.io/badge/19-high__thread__or__fd__count-6d4aff)]()
+[![18 process status](https://img.shields.io/badge/18-process__status__via__psutil-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/18_process_status_via_psutil.py)
+[![19 thread/fd count](https://img.shields.io/badge/19-high__thread__or__fd__count-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/19_high_thread_or_fd_count.py)
 
 ### Métadonnées & corrélation
-[![17 pressure score](https://img.shields.io/badge/17-resource__pressure__score-6d4aff)]()
-[![31 correlation score](https://img.shields.io/badge/31-multi__plugin__correlation__score-6d4aff)]()
+[![17 pressure score](https://img.shields.io/badge/17-resource__pressure__score-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/17_resource_pressure_score.py)
+[![31 correlation score](https://img.shields.io/badge/31-multi__plugin__correlation__score-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/31_multi_plugin_correlation_score.py)
 
 ### Infra & cross-analysis
-[![38 lsof cross ref](https://img.shields.io/badge/38-lsof__cross__reference-6d4aff)]()
+[![38 lsof cross ref](https://img.shields.io/badge/38-lsof__cross__reference-6d4aff)](https://github.com/TFD-42/Proc_Map_Analyzer/blob/main/plugins/38_lsof_cross_reference.py)
 
 Each plugin is 30–120 lines of standard-library Python with its rationale in the docstring — copy one as a template for your own heuristic.
 
