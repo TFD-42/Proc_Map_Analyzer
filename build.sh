@@ -72,6 +72,13 @@ done
 [ -n "$PYTHON_BIN" ] || { err "Python 3 not found. Run ./install.sh first (it installs Python)."; exit 1; }
 log "Python: $("$PYTHON_BIN" --version 2>&1) ($(command -v "$PYTHON_BIN"))"
 
+PY_MINOR="$("$PYTHON_BIN" -c 'import sys; print(sys.version_info[1])' 2>/dev/null || echo 0)"
+if [ "$PY_MINOR" -lt 10 ] 2>/dev/null; then
+    err "Python 3.10+ is required since v0.3.0 (found $("$PYTHON_BIN" --version 2>&1)): requirements_frozen.txt pins Pillow/requests/urllib3 versions that dropped Python 3.9 support upstream."
+    err "Install a newer Python so it is first on PATH as python3, then rerun this script."
+    exit 1
+fi
+
 if [ ! -x "$BUILD_VENV/bin/python" ]; then
     log "Creating build venv: $BUILD_VENV"
     "$PYTHON_BIN" -m venv "$BUILD_VENV" || { err "venv creation failed (python3-venv installed?)"; exit 1; }

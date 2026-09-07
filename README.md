@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/TFD-42/Proc_Map_Analyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/TFD-42/Proc_Map_Analyzer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Linux%20%7C%20Windows%20%7C%20Android%2FTermux-lightgrey.svg)](#android--termux-support)
 [![Local-first AI](https://img.shields.io/badge/AI-local--first%20(Ollama)-orange.svg)](#ollama-integration)
 
@@ -120,7 +120,7 @@ These installers touch the system (software installation, possibly `sudo`/admini
 
 ## Prerequisites
 
-- **Python 3.9+**
+- **Python 3.10+** (raised from 3.9 in v0.3.0: security fixes for Pillow/requests/urllib3 require it, see [CHANGELOG](CHANGELOG.md))
 - Python dependencies: `networkx`, `matplotlib`, `requests`, and `psutil` on every platform except Android/Termux — installed automatically on first launch if missing (except in a compiled executable, see below). On Android/Termux, `psutil` is automatically replaced by an internal backend (see [Android / Termux support](#android--termux-support)).
 - **Ollama** (optional) for AI enrichment — installed automatically if needed in wizard mode (see [Ollama integration](#ollama-integration)). Without Ollama, the tool still works, just without the AI-generated descriptions.
 - An **internet connection** is required only for: automatic installation of the dependencies/of Ollama, downloading an Ollama model, and displaying the 3D graph (library loaded from a CDN). The process analysis itself requires no external network access.

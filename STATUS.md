@@ -2,7 +2,7 @@
 
 **Current status:** Actively in development (personal / study project, published on GitHub)
 
-**Last significant activity:** 2026-09-07 (38 plugins, file-analysis mode `--stream-focus-on`, `--focus-sec`, reproducible install/build — unreleased, see `CHANGELOG.md`)
+**Last significant activity:** 2026-09-07 — v0.3.0 released: 38 plugins, file-analysis mode `--stream-focus-on`, `--focus-sec`, reproducible install/build, Python floor raised to 3.10 (security fixes for pillow/requests/urllib3), see `CHANGELOG.md`
 
 ## What this means
 

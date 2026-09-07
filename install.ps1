@@ -182,6 +182,13 @@ if (-not $pythonCmd) {
 }
 Log "Python detected: $(& $pythonCmd --version 2>&1)"
 
+$pyMinor = [int](& $pythonCmd -c "import sys; print(sys.version_info[1])" 2>$null)
+if ($pyMinor -lt 10) {
+    Err "Python 3.10+ is required since v0.3.0 (found $(& $pythonCmd --version 2>&1)): the pinned security fixes for Pillow/requests/urllib3 in requirements_frozen.txt dropped Python 3.9 support upstream."
+    Err "Install a newer Python from https://www.python.org/downloads/ (check 'Add python.exe to PATH') then rerun this script."
+    exit 1
+}
+
 # ---------------------------------------------------------------------------
 # 4. Virtual environment + activation
 # ---------------------------------------------------------------------------

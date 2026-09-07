@@ -4,7 +4,11 @@ All notable changes to this project are documented here.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project will follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once a first version is tagged.
 
-## [Unreleased]
+## [0.3.0] - 2026-09-07
+
+### Changed
+- **Python floor raised from 3.9 to 3.10.** Dependabot opened 21 security alerts against the pinned `pillow` (11.3.0), `requests` (2.32.5) and `urllib3` (2.6.3) — every fixed release (`pillow>=12.0.0`, `requests>=2.33.0`, `urllib3>=2.7.0`) dropped Python 3.9 support upstream, so there was no way to close the alerts while keeping 3.9. `requirements_frozen.txt` now pins `pillow==12.3.0`, `requests==2.34.2`, `urllib3==2.7.0`; `requirements.txt`'s lower bound for `requests` moved to `>=2.33.0`. `install.sh`/`install.ps1`/`build.sh`/`build.ps1` now check the detected Python's minor version and fail with a clear message (instead of a confusing pip resolution error) if it's below 3.10. CI matrix updated to `3.10`/`3.11`/`3.12`. Dependabot's pip version-bump PRs, disabled since the previous 3.9 floor made them fail CI, are re-enabled.
+- Repository git history rewritten (`git filter-repo`) to fix the author/committer identity on 6 pre-v0.2.0 commits, which leaked a local machine username and hostname; all commit content is unchanged, only identity metadata was corrected.
 
 ### Added
 - `compile_check.py`: single in-memory syntax check of the main script and every `plugins/*.py` (builtin `compile()`, never writes `__pycache__`/`.pyc`). Called by `install.sh`, `install.ps1`, both `.command` launchers, `build.sh`/`build.ps1` and CI, so "the code compiles" is defined once.

@@ -10,11 +10,11 @@ matplotlib==3.9.4
 networkx==3.2.1
 numpy==2.0.2
 packaging==26.3
-pillow==11.3.0
+pillow==12.3.0
 psutil==7.2.2
 pyparsing==3.3.2
 python_dateutil==2.9.0.post0
-requests==2.32.5
+requests==2.34.2
 six==1.17.0
-urllib3==2.6.3
+urllib3==2.7.0
 zipp==3.23.1

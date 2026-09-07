@@ -61,6 +61,13 @@ foreach ($candidate in @("python", "python3", "py")) {
 if (-not $pythonCmd) { Err "Python 3 not found. Run install.ps1 first (it installs Python)."; exit 1 }
 Log "Python: $(& $pythonCmd --version 2>&1)"
 
+$pyMinor = [int](& $pythonCmd -c "import sys; print(sys.version_info[1])" 2>$null)
+if ($pyMinor -lt 10) {
+    Err "Python 3.10+ is required since v0.3.0 (found $(& $pythonCmd --version 2>&1)): requirements_frozen.txt pins Pillow/requests/urllib3 versions that dropped Python 3.9 support upstream."
+    Err "Install a newer Python from https://www.python.org/downloads/ then rerun this script."
+    exit 1
+}
+
 $VPy = Join-Path $BuildVenv "Scripts\python.exe"
 if (-not (Test-Path $VPy)) {
     Log "Creating build venv: $BuildVenv"

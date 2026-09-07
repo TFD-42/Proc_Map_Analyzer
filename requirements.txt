@@ -8,9 +8,13 @@
 # automatically.
 #
 # Lower bounds = versions actually tested in development (macOS,
-# Python 3.9) and exercised by CI (3.9/3.11/3.12). No upper bounds:
+# Python 3.11) and exercised by CI (3.10/3.11/3.12). No upper bounds:
 # no known incompatibility so far — tighten if CI reveals one.
+#
+# Python floor is 3.10 (raised from 3.9 in v0.3.0): the security fixes
+# for Pillow (matplotlib's image backend), requests and urllib3 below
+# all dropped 3.9 support upstream — see CHANGELOG.md.
 networkx>=3.2.1
 matplotlib>=3.9.4
-requests>=2.32.5
+requests>=2.33.0
 psutil>=7.2.2

@@ -244,6 +244,13 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 log "Python detected: $("$PYTHON_BIN" --version 2>&1)"
 
+PY_MINOR="$("$PYTHON_BIN" -c 'import sys; print(sys.version_info[1])' 2>/dev/null || echo 0)"
+if [ "$PY_MINOR" -lt 10 ] 2>/dev/null; then
+    err "Python 3.10+ is required since v0.3.0 (found $("$PYTHON_BIN" --version 2>&1)): the pinned security fixes for Pillow/requests/urllib3 in requirements_frozen.txt dropped Python 3.9 support upstream."
+    err "Install a newer Python (e.g. 'brew install python@3.12' on macOS, 'sudo apt-get install python3.12' on Debian/Ubuntu) so it is first on PATH as python3, then rerun this script."
+    exit 1
+fi
+
 # ---------------------------------------------------------------------------
 # 4. Virtual environment + activation
 # ---------------------------------------------------------------------------
