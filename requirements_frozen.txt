@@ -8,7 +8,7 @@ importlib_resources==7.1.0
 kiwisolver==1.4.7
 matplotlib==3.9.4
 networkx==3.2.1
-numpy==2.0.2
+numpy==2.5.3
 packaging==26.3
 pillow==12.3.0
 psutil==7.2.2
