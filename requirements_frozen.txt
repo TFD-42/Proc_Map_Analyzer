@@ -5,7 +5,7 @@ cycler==0.12.1
 fonttools==4.64.0
 idna==3.18
 importlib_resources==7.1.0
-kiwisolver==1.4.7
+kiwisolver==1.5.1
 matplotlib==3.9.4
 networkx==3.2.1
 numpy==2.0.2
