@@ -7,7 +7,7 @@ idna==3.18
 importlib_resources==7.1.0
 kiwisolver==1.4.7
 matplotlib==3.11.2
-networkx==3.2.1
+networkx==3.7
 numpy==2.0.2
 packaging==26.3
 pillow==12.3.0
