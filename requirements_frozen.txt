@@ -16,5 +16,5 @@ pyparsing==3.3.2
 python_dateutil==2.9.0.post0
 requests==2.34.2
 six==1.17.0
-urllib3==2.7.0
+urllib3==2.8.0
 zipp==4.1.0
